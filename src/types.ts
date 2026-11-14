@@ -30,6 +30,9 @@ export interface Target {
   r: number; // radius as a fraction of frame width
   /** Added after recording (not called before the shot): drawn on playback, not in the video. */
   late?: boolean;
+  /** Part of the clip the target applies to (the shot, not a selfie intro). */
+  fromMs?: number;
+  toMs?: number;
 }
 
 export type PostKind = 'original' | 'matched' | 'upped';

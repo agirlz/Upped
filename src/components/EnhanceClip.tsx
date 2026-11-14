@@ -19,6 +19,8 @@ export function EnhanceClip({ post, onClose }: { post: Post; onClose: () => void
   const [result, setResult] = useState<Analysis>();
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  // When in the clip the target was tapped: tells the analysis which camera part holds the shot.
+  const tapMs = useRef(post.momentMs);
   const videoRef = useRef<HTMLVideoElement>(null);
   // A target called while recording is drawn into the video itself, so it can't move.
   const burnedIn = !!post.target && !post.target.late;
@@ -51,6 +53,7 @@ export function EnhanceClip({ post, onClose }: { post: Post; onClose: () => void
   const tap = (e: React.PointerEvent<HTMLDivElement>) => {
     if (step !== 'tap' || burnedIn) return;
     const rect = e.currentTarget.getBoundingClientRect();
+    tapMs.current = (videoRef.current?.currentTime ?? post.momentMs / 1000) * 1000;
     setTarget({ x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height, r: ring, late: true });
   };
 
@@ -59,7 +62,7 @@ export function EnhanceClip({ post, onClose }: { post: Post; onClose: () => void
     setStep('working');
     setError('');
     try {
-      setResult(await analyzeClip(url, target, setProgress));
+      setResult(await analyzeClip(url, target, burnedIn ? post.momentMs : tapMs.current, setProgress));
       setStep('preview');
     } catch (e) {
       setError((e as Error).message);
@@ -75,7 +78,7 @@ export function EnhanceClip({ post, onClose }: { post: Post; onClose: () => void
     if (!target || !result) return;
     setSaving(true);
     try {
-      await savePostAnalysis(post.id, { target: burnedIn ? post.target! : { ...target, late: true }, trail: keptTrail, momentMs: result.momentMs });
+      await savePostAnalysis(post.id, { target: burnedIn ? post.target! : { ...target, late: true, fromMs: result.fromMs, toMs: result.toMs }, trail: keptTrail, momentMs: result.momentMs });
       onClose();
     } catch (e) {
       setError((e as Error).message);
@@ -153,7 +156,7 @@ export function EnhanceClip({ post, onClose }: { post: Post; onClose: () => void
                 ? 'Found it! Here’s your shot with the target, trail and sound.'
                 : 'Couldn’t spot the object in flight (too small, too dark, or the phone moved), but the target and the replay are added.'}
             </p>
-            <ClipPlayer src={url} momentMs={result.momentMs} target={burnedIn ? post.target : { ...target, late: true }} trail={keptTrail} celebrate />
+            <ClipPlayer src={url} momentMs={result.momentMs} target={burnedIn ? post.target : { ...target, late: true, fromMs: result.fromMs, toMs: result.toMs }} trail={keptTrail} celebrate />
             {!burnedIn && <p className="small muted">Shows as “Target added later” so everyone knows it wasn’t called before the throw.</p>}
             {error && <p className="error">{error}</p>}
             <div className="row">

@@ -386,13 +386,16 @@ function toggle(list: ID[], id: ID): ID[] {
   return list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
 }
 
+/** One reaction per person per clip: picking another emoji switches it, the same one removes it. */
 export function react(postId: ID, emoji: string, userId = state.meId!) {
   commit((s) => {
     const p = s.posts[postId];
-    p.reactions[emoji] = toggle(p.reactions[emoji] ?? [], userId);
+    const had = (p.reactions[emoji] ?? []).includes(userId);
+    for (const e of Object.keys(p.reactions)) p.reactions[e] = p.reactions[e].filter((id) => id !== userId);
+    if (!had) p.reactions[emoji] = [...(p.reactions[emoji] ?? []), userId];
   });
   const on = (state.posts[postId].reactions[emoji] ?? []).includes(userId);
-  remote(() => cloud.setReaction(postId, userId, emoji, on));
+  remote(() => cloud.setReaction(postId, userId, on ? emoji : null));
 }
 
 /** Vote on a reply. up = "it beats / matches it". Voting again on the same side clears the vote. */

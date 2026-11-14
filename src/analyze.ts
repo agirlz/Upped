@@ -9,13 +9,50 @@ import type { Target } from './types';
 export interface Analysis {
   momentMs: number;
   trail: TrailPoint[] | null;
+  /** The stretch of clip between camera flips that contains the shot. */
+  fromMs: number;
+  toMs: number;
+}
+
+/**
+ * Split the clip where the picture suddenly changes completely, which is what
+ * a front/back camera flip looks like, and return the part containing `atMs`.
+ */
+function shotSegment(frames: Array<{ t: number; data: Uint8Array }>, atMs: number, durationMs: number) {
+  const diffs: number[] = [];
+  for (let i = 1; i < frames.length; i++) {
+    const a = frames[i - 1].data;
+    const b = frames[i].data;
+    let sum = 0;
+    let n = 0;
+    for (let k = 0; k < a.length; k += 13) {
+      sum += Math.abs(a[k] - b[k]);
+      n++;
+    }
+    diffs.push(sum / n);
+  }
+  const sorted = [...diffs].sort((x, y) => x - y);
+  const median = sorted[Math.floor(sorted.length / 2)] ?? 0;
+  const cuts = [0];
+  diffs.forEach((d, i) => {
+    if (d > Math.max(28, median * 6)) cuts.push(frames[i + 1].t);
+  });
+  cuts.push(durationMs + 1);
+  for (let i = 0; i < cuts.length - 1; i++) {
+    if (atMs >= cuts[i] && atMs < cuts[i + 1]) return { fromMs: cuts[i], toMs: cuts[i + 1] };
+  }
+  return { fromMs: 0, toMs: durationMs + 1 };
 }
 
 type FrameVideo = HTMLVideoElement & {
   requestVideoFrameCallback?: (cb: (now: number, meta: { mediaTime: number }) => void) => number;
 };
 
-export async function analyzeClip(url: string, target: Target, onProgress: (fraction: number) => void): Promise<Analysis> {
+/**
+ * @param atMs the moment the person was looking at when they tapped the target,
+ *   which tells us which camera's part of the clip the shot is in.
+ */
+export async function analyzeClip(url: string, target: Target, atMs: number, onProgress: (fraction: number) => void): Promise<Analysis> {
   const v = document.createElement('video') as FrameVideo;
   v.muted = true;
   v.playsInline = true;
@@ -78,9 +115,10 @@ export async function analyzeClip(url: string, target: Target, onProgress: (frac
       void v.play().catch(() => res());
     });
 
-    const momentMs = motion.peak(durationMs / 2);
-    const trail = findTrail(flight, { momentMs, anchor: { x: target.x, y: target.y }, aspect: c.width / c.height });
-    return { momentMs, trail };
+    const { fromMs, toMs } = shotSegment(flight.frames, atMs, durationMs);
+    const momentMs = motion.peak(Math.min(Math.max(atMs, fromMs), toMs), fromMs, toMs);
+    const trail = findTrail(flight, { momentMs, anchor: { x: target.x, y: target.y }, aspect: c.width / c.height, fromMs, toMs });
+    return { momentMs, trail, fromMs, toMs };
   } finally {
     v.pause();
     v.remove();

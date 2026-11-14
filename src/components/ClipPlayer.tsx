@@ -51,6 +51,7 @@ export const ClipPlayer = forwardRef<ClipPlayerHandle, Props>(function ClipPlaye
   if (target?.late && stampText === 'CALLED IT') stampText = 'MADE IT';
   const trailPath = useRef<SVGPathElement>(null);
   const trailHead = useRef<SVGCircleElement>(null);
+  const lateRing = useRef<SVGGElement>(null);
   const [dims, setDims] = useState({ w: 16, h: 9 });
   const celebrated = useRef(false);
 
@@ -83,7 +84,8 @@ export const ClipPlayer = forwardRef<ClipPlayerHandle, Props>(function ClipPlaye
       const v = videoRef.current;
       if (v) {
         const t = v.currentTime * 1000;
-        const inWindow = slowmo && t >= momentMs - SLOW_BEFORE && t <= momentMs + SLOW_AFTER;
+        const inShot = !target || (t >= (target.fromMs ?? -Infinity) && t <= (target.toMs ?? Infinity));
+        const inWindow = slowmo && inShot && t >= momentMs - SLOW_BEFORE && t <= momentMs + SLOW_AFTER;
         const rate = inWindow ? 0.3 : 1;
         if (v.playbackRate !== rate) v.playbackRate = rate;
         setZoom(inWindow);
@@ -94,6 +96,12 @@ export const ClipPlayer = forwardRef<ClipPlayerHandle, Props>(function ClipPlaye
         if (restarted) fired = t >= momentMs + STAMP_DELAY;
         lastT = t;
         drawTrail(t);
+        // A ring added later only belongs to the part of the clip with the shot,
+        // not a selfie intro before the camera was flipped.
+        if (lateRing.current && target) {
+          const on = t >= (target.fromMs ?? -Infinity) && t <= (target.toMs ?? Infinity);
+          lateRing.current.style.display = on ? '' : 'none';
+        }
       }
       raf = requestAnimationFrame(tick);
     };
@@ -102,7 +110,7 @@ export const ClipPlayer = forwardRef<ClipPlayerHandle, Props>(function ClipPlaye
       cancelAnimationFrame(raf);
       window.clearTimeout(hideTimer);
     };
-  }, [momentMs, slowmo, trail, dims, celebrate, stampText]);
+  }, [momentMs, slowmo, trail, dims, celebrate, stampText, target?.fromMs, target?.toMs, target?.x, target?.y]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The trail grows with playback: drawn up to the current moment, with a bright head.
   function drawTrail(t: number) {
@@ -187,7 +195,11 @@ export const ClipPlayer = forwardRef<ClipPlayerHandle, Props>(function ClipPlaye
         )}
         {((trail && trail.length > 1) || target?.late) && (
           <svg className="clip-trail" viewBox={`0 0 ${dims.w} ${dims.h}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-            {target?.late && <TargetRing target={target} w={dims.w} h={dims.h} />}
+            {target?.late && (
+              <g ref={lateRing}>
+                <TargetRing target={target} w={dims.w} h={dims.h} />
+              </g>
+            )}
             <path ref={trailPath} fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth={dims.w * 0.012} />
             <circle ref={trailHead} r="0" />
           </svg>

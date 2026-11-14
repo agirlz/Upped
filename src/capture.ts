@@ -194,13 +194,13 @@ export class TargetMotion {
   }
 
   /** Time (ms) of the strongest smoothed motion spike, ignoring the first half second. */
-  peak(fallbackMs: number): number {
-    const s = this.samples;
+  peak(fallbackMs: number, fromMs = -Infinity, toMs = Infinity): number {
+    const s = this.samples.filter((x) => x.t >= fromMs && x.t <= toMs);
     if (s.length < 5) return fallbackMs;
     let best = -1;
     let bestT = fallbackMs;
     for (let i = 2; i < s.length - 2; i++) {
-      if (s[i].t < 500) continue;
+      if (s[i].t < 500 || s[i].t < fromMs + 300) continue;
       const v = (s[i - 1].d + s[i].d * 2 + s[i + 1].d) / 4;
       if (v > best) {
         best = v;

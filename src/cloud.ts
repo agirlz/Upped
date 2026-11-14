@@ -108,9 +108,13 @@ export async function fetchAll(meId: string): Promise<Omit<State, 'version'>> {
       comments: [],
     };
   }
+  const reacted = new Set<string>();
   for (const r of must<any[]>(reactions)) {
     const p = postMap[r.post_id];
-    if (p) (p.reactions[r.emoji] ??= []).push(r.user_id);
+    // One reaction per person: older data may have several, count only the first.
+    if (!p || reacted.has(r.post_id + r.user_id)) continue;
+    reacted.add(r.post_id + r.user_id);
+    (p.reactions[r.emoji] ??= []).push(r.user_id);
   }
   for (const v of must<any[]>(votes)) {
     const p = postMap[v.post_id];
@@ -204,9 +208,10 @@ export async function deletePostRemote(p: Post) {
   if (paths.length) await sb!.storage.from(BUCKET).remove(paths);
 }
 
-export async function setReaction(postId: ID, userId: ID, emoji: string, on: boolean) {
-  if (on) must(await sb!.from('reactions').upsert({ post_id: postId, user_id: userId, emoji }));
-  else must(await sb!.from('reactions').delete().match({ post_id: postId, user_id: userId, emoji }));
+/** Set this player's one reaction on a clip (null removes it). */
+export async function setReaction(postId: ID, userId: ID, emoji: string | null) {
+  must(await sb!.from('reactions').delete().match({ post_id: postId, user_id: userId }));
+  if (emoji) must(await sb!.from('reactions').insert({ post_id: postId, user_id: userId, emoji }));
 }
 
 export async function setVote(postId: ID, userId: ID, up: boolean | null) {

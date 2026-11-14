@@ -184,12 +184,15 @@ export interface TrailOptions {
   /** Called target: the arc should end here at the landing moment. */
   anchor?: { x: number; y: number };
   aspect: number; // width / height, so distances are measured fairly
+  /** Only use this part of the clip (e.g. after a flip from the selfie camera). */
+  fromMs?: number;
+  toMs?: number;
 }
 
 /** Find the flight arc. Returns trail points from release to landing, or null. */
 export function findTrail(buf: FlightFrames, opts: TrailOptions): TrailPoint[] | null {
-  const lo = opts.momentMs - 2200;
-  const hi = opts.momentMs + 200;
+  const lo = Math.max(opts.momentMs - 2200, opts.fromMs ?? -Infinity);
+  const hi = Math.min(opts.momentMs + 200, opts.toMs ?? Infinity);
   const frames = buf.frames.filter((f) => f.t >= lo && f.t <= hi);
   if (frames.length < 6) return null;
   const all = sightings(frames, buf.w, buf.h, opts.momentMs).filter((s) => s.tau <= 0.08);
