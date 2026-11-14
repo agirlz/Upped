@@ -2,18 +2,28 @@
 
 Post a trick shot, your lobby matches it or ups it, everyone votes, the winner holds the crown.
 
-## Run it
+## Live app
+
+Every push to `main` publishes the app to **https://agirlz.github.io/upped/** (GitHub Actions →
+GitHub Pages). Open that link on your phone; on Android, use Chrome's menu → *Add to Home screen*.
+
+## Run it locally
 
 ```bash
-cd trickshot
 npm install
-npm run dev      # open the printed URL on your phone (same Wi-Fi)
+npm run dev        # "this phone only" demo mode (data stays in the browser)
 ```
 
-Phone cameras only work on `https://` or `localhost`, so for real phone testing either deploy
-`npm run build` output (`dist/`) to any static host (Netlify, Vercel, GitHub Pages) or use a tunnel.
+To run against the shared server locally, copy `.env.production` to `.env.local`.
+Phone cameras and AR only work on `https://` or `localhost`.
 
-## What's in v0.1
+## Server (Supabase)
+
+`supabase/schema.sql` creates the tables, privacy rules (everything is private to a lobby),
+the private `clips` video bucket and live updates. Run it in the Supabase SQL Editor; it is
+safe to run again after changes. Anonymous sign-ins must be on (Authentication → Sign In / Providers).
+
+## Features
 
 - **Lobbies** with invite codes, a feed of challenge chains, comments, and reactions (🔥 😱 😂 🐐)
 - **In-app recorder only** (no camera-roll uploads): tap to *call your target*, countdown, auto-stop
@@ -27,8 +37,13 @@ Phone cameras only work on `https://` or `localhost`, so for real phone testing 
 - **Leaderboards:** lobby, near me (location rounded to ~10 km), global; this week / all time
 - **Demo lobby** with generated sample clips, and a player switcher for pass-the-phone testing
 
+- **Online:** anonymous accounts (no email), private lobbies, live updates, lobby admins can delete clips
+- **Fast posting:** about 4 taps; auto-stop on landing; settings remembered; one-tap post
+- **Camera flip** front/back mid-take without a cut
+- **Difficulty:** distance bucket + target size + extras; Try it posts as Match or Up automatically
+- **📏 AR distance measuring** on Android (WebXR)
+
 ## Not yet
 
-- Shared backend (data lives on one device in IndexedDB). `src/store.ts` is the seam for Supabase.
-- Stronger anti-cheat (device attestation, motion-sensor check, audio codes) needs the native app.
-- Ball tracer.
+- Stronger anti-cheat (device attestation, motion-sensor check, AR tracking during the shot) needs a native app.
+- Ball tracer, AI ref / hype captions, push notifications.
