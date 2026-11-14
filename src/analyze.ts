@@ -39,7 +39,8 @@ function shotSegment(frames: Array<{ t: number; data: Uint8Array }>, atMs: numbe
   });
   cuts.push(durationMs + 1);
   for (let i = 0; i < cuts.length - 1; i++) {
-    if (atMs >= cuts[i] && atMs < cuts[i + 1]) return { fromMs: cuts[i], toMs: cuts[i + 1] };
+    // A little margin after a flip: the first frames after a camera switch are blurry.
+    if (atMs >= cuts[i] && atMs < cuts[i + 1]) return { fromMs: i === 0 ? 0 : Math.min(cuts[i] + 300, atMs), toMs: cuts[i + 1] };
   }
   return { fromMs: 0, toMs: durationMs + 1 };
 }

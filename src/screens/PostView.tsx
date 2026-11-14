@@ -146,7 +146,7 @@ function PostBlock({ s, post, onBloopers, isChamp }: { s: State; post: Post; onB
             <Icon name="target" /> Target added later
           </span>
         )}
-        {post.trail && <span className="pill pill-lime">✨ Trail</span>}
+        {post.trail && (post.target?.trailByHand ? <span className="pill">✏️ Trail drawn by you</span> : <span className="pill pill-lime">✨ Tracked trail</span>)}
         <span className="pill" title="Recorded in the app with a one-time code burned into the video">
           <Icon name="check" /> In-app · {post.verifyCode}
         </span>
@@ -160,9 +160,9 @@ function PostBlock({ s, post, onBloopers, isChamp }: { s: State; post: Post; onB
       <div className="post-actions">
         <ReactionBar post={post} meId={s.meId!} />
         <div className="row tight">
-          {mine && !hidden && (!post.trail || !post.target || post.target.late) && (
+          {mine && !hidden && (
             <button className="chip chip-on" onClick={() => setEnhancing(true)}>
-              ✨ {post.target?.late ? 'Redo target & trail' : !post.target ? (post.trail ? 'Add target' : 'Add target & trail') : 'Add trail'}
+              ✨ {!post.target ? (post.trail ? 'Add target' : 'Add target & trail') : post.trail ? 'Edit trail' : 'Add trail'}
             </button>
           )}
           {post.missIds.length > 0 && (

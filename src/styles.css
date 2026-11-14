@@ -623,3 +623,6 @@ details ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
 .shot-steps li.done { color: var(--white); }
 .shot-steps li.done .howto-num { background: rgba(198, 255, 61, 0.15); color: var(--lime); }
 .shot-steps li b { color: inherit; }
+
+.enhance-frame svg path { stroke: var(--lime); filter: drop-shadow(0 0 4px rgba(198, 255, 61, 0.9)); }
+.release-dot { fill: none; stroke: #fff; stroke-width: 3; filter: drop-shadow(0 0 4px #000); }

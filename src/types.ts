@@ -33,6 +33,8 @@ export interface Target {
   /** Part of the clip the target applies to (the shot, not a selfie intro). */
   fromMs?: number;
   toMs?: number;
+  /** The trail was drawn by the player (release + landing), not tracked. */
+  trailByHand?: boolean;
 }
 
 export type PostKind = 'original' | 'matched' | 'upped';

@@ -69,7 +69,20 @@ export class FlightFrames {
   }
 }
 
+/**
+ * Where the app burns its labels into the video (see drawOverlay): the strip
+ * along the top and the recording timer at the bottom right. Their text
+ * changes every frame, which looks like motion, so it is ignored.
+ */
+function inLabels(x: number, y: number, w: number, h: number): boolean {
+  const u = 1 / 100; // label sizes are relative to the frame width
+  const topBand = (u * 6 * w) / h;
+  const bottomBand = (u * 7 * w) / h;
+  return y < topBand || (y > 1 - bottomBand && x > 0.72);
+}
+
 interface Sighting {
+  area?: number;
   tau: number; // seconds relative to the landing (negative = before)
   x: number;
   y: number;
@@ -77,8 +90,9 @@ interface Sighting {
 }
 
 /** Small moving blobs in each frame: where the object probably is. */
-function sightings(frames: Frame[], w: number, h: number, momentMs: number): Sighting[] {
+function sightings(frames: Frame[], w: number, h: number, momentMs: number): { out: Sighting[]; shaky: number } {
   const out: Sighting[] = [];
+  let shaky = 0;
   const n = w * h;
   const mask = new Uint8Array(n);
   const label = new Int32Array(n);
@@ -97,6 +111,7 @@ function sightings(frames: Frame[], w: number, h: number, momentMs: number): Sig
       mask[p] = m;
       on += m;
     }
+    if (on > n * 0.12) shaky++;
     if (on === 0 || on > n * 0.12) continue; // nothing moving, or the whole picture shook
     label.fill(0);
     let next = 1;
@@ -132,13 +147,16 @@ function sightings(frames: Frame[], w: number, h: number, momentMs: number): Sig
         }
       }
       next++;
-      if (area >= 1 && area <= maxArea) blobs.push({ x: sx / area / w, y: sy / area / h, area });
+      const bx = sx / area / w;
+      const by = sy / area / h;
+      // Single-pixel specks are compression noise; the app's own labels tick every frame.
+      if (area >= 2 && area <= maxArea && !inLabels(bx, by, w, h)) blobs.push({ x: bx, y: by, area });
     }
     // An arm or body makes big blobs; keep the smaller ones, at most a few per frame.
     blobs.sort((p, q) => p.area - q.area);
-    for (const bl of blobs.slice(0, 6)) out.push({ tau: (frames[i].t - momentMs) / 1000, x: bl.x, y: bl.y, frame: i });
+    for (const bl of blobs.slice(0, 6)) out.push({ tau: (frames[i].t - momentMs) / 1000, x: bl.x, y: bl.y, frame: i, area: bl.area });
   }
-  return out;
+  return { out, shaky: shaky / Math.max(1, frames.length - 2) };
 }
 
 interface Arc {
@@ -191,11 +209,17 @@ export interface TrailOptions {
 
 /** Find the flight arc. Returns trail points from release to landing, or null. */
 export function findTrail(buf: FlightFrames, opts: TrailOptions): TrailPoint[] | null {
-  const lo = Math.max(opts.momentMs - 2200, opts.fromMs ?? -Infinity);
+  // Throws in a room or on a court are in the air for well under 1.5 seconds.
+  const lo = Math.max(opts.momentMs - 1500, opts.fromMs ?? -Infinity);
   const hi = Math.min(opts.momentMs + 200, opts.toMs ?? Infinity);
   const frames = buf.frames.filter((f) => f.t >= lo && f.t <= hi);
   if (frames.length < 6) return null;
-  const all = sightings(frames, buf.w, buf.h, opts.momentMs).filter((s) => s.tau <= 0.08);
+  const seen = sightings(frames, buf.w, buf.h, opts.momentMs);
+  const all = seen.out.filter((s) => s.tau <= 0.08);
+  debug.shaky = +seen.shaky.toFixed(2);
+  debug.reason = 'camera moving too much';
+  // A phone swinging around makes the whole picture change: nothing can be trusted.
+  if (seen.shaky > 0.35) return null;
   debug.frames = frames.length;
   debug.sightings = all.length;
   debug.inliers = 0;
@@ -237,11 +261,46 @@ export function findTrail(buf: FlightFrames, opts: TrailOptions): TrailPoint[] |
     const cur = perFrame.get(s.frame);
     if (!cur || dist(best.arc, s) < dist(best.arc, cur)) perFrame.set(s.frame, s);
   }
-  const used = [...perFrame.values()];
+  const used = [...perFrame.values()].sort((a, b) => a.frame - b.frame);
+
+  // Be strict. A real throw is seen in several frames in a row, moving along
+  // the arc. A curve stitched together from scattered specks (shake, a hand,
+  // reflections) is a guess, and a confident-looking wrong trail is worse
+  // than none.
+  let run = 1;
+  let longest = 1;
+  for (let i = 1; i < used.length; i++) {
+    run = used[i].frame - used[i - 1].frame <= 2 ? run + 1 : 1;
+    longest = Math.max(longest, run);
+  }
+  debug.longestRun = longest;
+  debug.reason = 'not enough of the flight seen';
+  if (used.length < 6 || longest < 5) return null;
+
+  // It has to actually fly: real progress from sighting to sighting, mostly in
+  // one direction. Flicker and noise jitter in place.
+  const steps: Array<[number, number]> = [];
+  for (let i = 1; i < used.length; i++) {
+    if (used[i].frame - used[i - 1].frame > 2) continue;
+    steps.push([(used[i].x - used[i - 1].x) * opts.aspect, used[i].y - used[i - 1].y]);
+  }
+  const net: [number, number] = [(used[used.length - 1].x - used[0].x) * opts.aspect, used[used.length - 1].y - used[0].y];
+  const netLen = Math.hypot(net[0], net[1]);
+  const stepLens = steps.map(([a, b]) => Math.hypot(a, b)).sort((a, b) => a - b);
+  const medianStep = stepLens[Math.floor(stepLens.length / 2)] ?? 0;
+  const forward = steps.filter(([a, b]) => a * net[0] + b * net[1] > 0).length / Math.max(1, steps.length);
+  Object.assign(debug, { netLen: +netLen.toFixed(3), medianStep: +medianStep.toFixed(4), forward: +forward.toFixed(2) });
+  debug.reason = 'nothing actually flew';
+  if (netLen < 0.12 || medianStep < 0.008 || forward < 0.7) return null;
   const arc = fit([...anchorPts, ...used.map((s) => ({ ...s, wt: 1 }))]) ?? best.arc;
+  // The refined arc must still pass close to the sightings it was built from.
+  const err = used.reduce((m, s) => m + dist(arc, s), 0) / used.length;
+  debug.fitError = +err.toFixed(4);
+  debug.reason = 'sightings do not line up';
+  if (err > tol * 0.6) return null;
 
   debug.arc = arc;
-  debug.used = used.map((u) => [+u.tau.toFixed(3), +u.x.toFixed(3), +u.y.toFixed(3)]);
+  debug.used = used.map((u) => [+u.tau.toFixed(3), +u.x.toFixed(3), +u.y.toFixed(3), u.area]);
   // Sanity: gravity pulls down (y grows), and it has to actually travel.
   debug.reason = 'gravity';
   if (arc.cy < -0.4) return null;
