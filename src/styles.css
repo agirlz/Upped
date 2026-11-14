@@ -570,3 +570,12 @@ details ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
 .settings-card label.check { grid-column: span 2; flex-direction: row; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; font-size: 0.9rem; color: var(--white); }
 .settings-card label.check input { width: 20px; height: 20px; accent-color: var(--lime); }
 .settings-card p { grid-column: span 2; margin: 0; }
+
+/* The stamp sits on the side of the frame away from the target. */
+.clip-stamp { font-size: 1.5rem; }
+.clip-stamp.stamp-high { top: 16%; }
+.clip-stamp.stamp-low { top: auto; bottom: 4%; transform: translate(-50%, 0) rotate(-7deg) skewX(-8deg); animation: stamp-low 0.4s cubic-bezier(0.2, 1.6, 0.4, 1); }
+@keyframes stamp-low {
+  from { transform: translate(-50%, 0) rotate(-7deg) skewX(-8deg) scale(2); opacity: 0; }
+  to { transform: translate(-50%, 0) rotate(-7deg) skewX(-8deg) scale(1); opacity: 1; }
+}

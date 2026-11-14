@@ -23,6 +23,9 @@ interface Props {
 
 const SLOW_BEFORE = 450;
 const SLOW_AFTER = 700;
+// The stamp waits until the replay is over so it never covers the target while the ball goes in.
+const STAMP_DELAY = SLOW_AFTER + 250;
+const STAMP_SHOW = 1400;
 
 /**
  * Plays a clip and automatically drops into a zoomed slow-motion replay
@@ -52,6 +55,15 @@ export const ClipPlayer = forwardRef<ClipPlayerHandle, Props>(function ClipPlaye
   // Watch playback position and switch slow-mo / zoom on and off.
   useEffect(() => {
     let raf = 0;
+    let lastT = 0;
+    let fired = false;
+    let hideTimer = 0;
+    const fire = () => {
+      fired = true;
+      setStamp(true);
+      window.clearTimeout(hideTimer);
+      hideTimer = window.setTimeout(() => setStamp(false), STAMP_SHOW);
+    };
     const tick = () => {
       const v = videoRef.current;
       if (v) {
@@ -60,12 +72,20 @@ export const ClipPlayer = forwardRef<ClipPlayerHandle, Props>(function ClipPlaye
         const rate = inWindow ? 0.3 : 1;
         if (v.playbackRate !== rate) v.playbackRate = rate;
         setZoom(inWindow);
-        setStamp(t >= momentMs && t <= momentMs + 1500);
+        // Show the stamp once per play-through, after the replay; if the clip
+        // ends (or loops) before that, show it at the end instead.
+        const restarted = t + 200 < lastT;
+        if (!fired && momentMs >= 0 && (t >= momentMs + STAMP_DELAY || (restarted && lastT >= momentMs) || (v.ended && t >= momentMs))) fire();
+        if (restarted) fired = t >= momentMs + STAMP_DELAY;
+        lastT = t;
       }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(hideTimer);
+    };
   }, [momentMs, slowmo]);
 
   useImperativeHandle(ref, () => ({
@@ -128,7 +148,7 @@ export const ClipPlayer = forwardRef<ClipPlayerHandle, Props>(function ClipPlaye
         )}
         {!url && <div className="clip-loading">Loading clip…</div>}
         {stamp && stampText && (
-          <div className="clip-stamp">
+          <div className={`clip-stamp ${target && target.y < 0.5 ? 'stamp-low' : 'stamp-high'}`}>
             <span className="stamp-target">
               <Icon name="target" size={compact ? 14 : 22} />
             </span>

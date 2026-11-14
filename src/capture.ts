@@ -55,12 +55,6 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, w: number, h: number,
     ctx.beginPath();
     ctx.arc(cx, cy, Math.max(1.5, u * 0.35), 0, Math.PI * 2);
     ctx.fill();
-    if (o.hit) {
-      ctx.fillStyle = 'rgba(198,255,61,0.18)';
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.fill();
-    }
     ctx.shadowBlur = 0;
     bracketLabel(ctx, 'CALLED SHOT', cx, Math.max(u * 4, cy - r - u * 5), u);
   }
