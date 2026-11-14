@@ -72,7 +72,8 @@ export function EnhanceClip({ post, onClose }: { post: Post; onClose: () => void
 
   // A trail found live while recording is sharper than one found later from the
   // compressed video, so keep it if there is one.
-  const keptTrail = post.trail ?? result?.trail ?? undefined;
+  // (When redoing a target added later, use the new result.)
+  const keptTrail = (post.target?.late ? result?.trail : post.trail ?? result?.trail) ?? undefined;
 
   const save = async () => {
     if (!target || !result) return;

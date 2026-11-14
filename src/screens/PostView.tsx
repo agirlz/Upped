@@ -160,9 +160,9 @@ function PostBlock({ s, post, onBloopers, isChamp }: { s: State; post: Post; onB
       <div className="post-actions">
         <ReactionBar post={post} meId={s.meId!} />
         <div className="row tight">
-          {mine && !hidden && (!post.trail || !post.target) && (
+          {mine && !hidden && (!post.trail || !post.target || post.target.late) && (
             <button className="chip chip-on" onClick={() => setEnhancing(true)}>
-              ✨ {!post.target ? (post.trail ? 'Add target' : 'Add target & trail') : 'Add trail'}
+              ✨ {post.target?.late ? 'Redo target & trail' : !post.target ? (post.trail ? 'Add target' : 'Add target & trail') : 'Add trail'}
             </button>
           )}
           {post.missIds.length > 0 && (
