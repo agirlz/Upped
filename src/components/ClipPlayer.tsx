@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { blobUrl } from '../db';
-import type { Target } from '../types';
+import { sfx } from '../sounds';
+import type { Post, Target } from '../types';
 import { Icon } from './Icon';
 
 export interface ClipPlayerHandle {
@@ -19,6 +20,10 @@ interface Props {
   loop?: boolean;
   compact?: boolean;
   stampText?: string;
+  /** Flight arc to draw as a glowing trail. */
+  trail?: Post['trail'];
+  /** Play the celebration sound the first time the make is shown. */
+  celebrate?: boolean;
 }
 
 const SLOW_BEFORE = 450;
@@ -32,7 +37,7 @@ const STAMP_SHOW = 1400;
  * around the moment the ball reached the called target.
  */
 export const ClipPlayer = forwardRef<ClipPlayerHandle, Props>(function ClipPlayer(
-  { blobId, src, momentMs, target, slowmo = true, autoPlay = true, loop = true, compact, stampText = 'CALLED IT' },
+  { blobId, src, momentMs, target, slowmo = true, autoPlay = true, loop = true, compact, stampText = 'CALLED IT', trail, celebrate },
   ref,
 ) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -42,6 +47,10 @@ export const ClipPlayer = forwardRef<ClipPlayerHandle, Props>(function ClipPlaye
   const [muted, setMuted] = useState(true);
   const [playing, setPlaying] = useState(false);
   const timer = useRef<number>();
+  const trailPath = useRef<SVGPathElement>(null);
+  const trailHead = useRef<SVGCircleElement>(null);
+  const [dims, setDims] = useState({ w: 16, h: 9 });
+  const celebrated = useRef(false);
 
   useEffect(() => {
     if (src) return setUrl(src);
@@ -60,6 +69,10 @@ export const ClipPlayer = forwardRef<ClipPlayerHandle, Props>(function ClipPlaye
     let hideTimer = 0;
     const fire = () => {
       fired = true;
+      if (celebrate && !celebrated.current && stampText) {
+        celebrated.current = true;
+        sfx.make();
+      }
       setStamp(true);
       window.clearTimeout(hideTimer);
       hideTimer = window.setTimeout(() => setStamp(false), STAMP_SHOW);
@@ -78,6 +91,7 @@ export const ClipPlayer = forwardRef<ClipPlayerHandle, Props>(function ClipPlaye
         if (!fired && momentMs >= 0 && (t >= momentMs + STAMP_DELAY || (restarted && lastT >= momentMs) || (v.ended && t >= momentMs))) fire();
         if (restarted) fired = t >= momentMs + STAMP_DELAY;
         lastT = t;
+        drawTrail(t);
       }
       raf = requestAnimationFrame(tick);
     };
@@ -86,7 +100,26 @@ export const ClipPlayer = forwardRef<ClipPlayerHandle, Props>(function ClipPlaye
       cancelAnimationFrame(raf);
       window.clearTimeout(hideTimer);
     };
-  }, [momentMs, slowmo]);
+  }, [momentMs, slowmo, trail, dims, celebrate, stampText]);
+
+  // The trail grows with playback: drawn up to the current moment, with a bright head.
+  function drawTrail(t: number) {
+    const path = trailPath.current;
+    const head = trailHead.current;
+    if (!path || !head || !trail?.length) return;
+    const shown = trail.filter((p) => p.t <= t);
+    if (shown.length < 2) {
+      path.setAttribute('d', '');
+      head.setAttribute('r', '0');
+      return;
+    }
+    path.setAttribute('d', 'M' + shown.map((p) => `${(p.x * dims.w).toFixed(1)} ${(p.y * dims.h).toFixed(1)}`).join(' L'));
+    const last = shown[shown.length - 1];
+    const flying = t <= trail[trail.length - 1].t + 60;
+    head.setAttribute('cx', String(last.x * dims.w));
+    head.setAttribute('cy', String(last.y * dims.h));
+    head.setAttribute('r', flying ? String(dims.w * 0.012) : '0');
+  }
 
   useImperativeHandle(ref, () => ({
     restart(delayMs = 0) {
@@ -129,6 +162,10 @@ export const ClipPlayer = forwardRef<ClipPlayerHandle, Props>(function ClipPlaye
   return (
     <div className={`clip ${compact ? 'clip-compact' : ''}`}>
       <div className="clip-frame" onClick={toggle}>
+        <div
+          className="clip-zoom"
+          style={{ transformOrigin: origin, transform: zoom ? `scale(${target ? 1.9 : 1.3})` : 'scale(1)' }}
+        >
         {url && (
           <video
             ref={videoRef}
@@ -137,15 +174,22 @@ export const ClipPlayer = forwardRef<ClipPlayerHandle, Props>(function ClipPlaye
             muted={muted}
             autoPlay={autoPlay}
             loop={loop}
-            onLoadedMetadata={fixDuration}
+            onLoadedMetadata={(e) => {
+              const v = e.currentTarget;
+              if (v.videoWidth) setDims({ w: v.videoWidth, h: v.videoHeight });
+              fixDuration();
+            }}
             onPlay={() => setPlaying(true)}
             onPause={() => setPlaying(false)}
-            style={{
-              transformOrigin: origin,
-              transform: zoom ? `scale(${target ? 1.9 : 1.3})` : 'scale(1)',
-            }}
           />
         )}
+        {trail && trail.length > 1 && (
+          <svg className="clip-trail" viewBox={`0 0 ${dims.w} ${dims.h}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            <path ref={trailPath} fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth={dims.w * 0.012} />
+            <circle ref={trailHead} r="0" />
+          </svg>
+        )}
+        </div>
         {!url && <div className="clip-loading">Loading clip…</div>}
         {stamp && stampText && (
           <div className={`clip-stamp ${target && target.y < 0.5 ? 'stamp-low' : 'stamp-high'}`}>

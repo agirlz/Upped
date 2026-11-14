@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ClipPlayer } from '../components/ClipPlayer';
 import { Icon } from '../components/Icon';
 import { SideBySide } from '../components/SideBySide';
 import { Avatar, handle, ReactionBar, SpotPill, timeAgo, TopBar } from '../components/ui';
 import { difficulty, distanceLabel, targetInfo } from '../difficulty';
 import { go } from '../router';
+import { sfx } from '../sounds';
 import { addComment, canDelete, champion, deletePost, flag, isHidden, repliesOf, useAppState, verdict, votesNeeded, vote } from '../store';
 import type { Post, State } from '../types';
 
@@ -121,7 +122,7 @@ function PostBlock({ s, post, onBloopers, isChamp }: { s: State; post: Post; onB
       {hidden ? (
         <div className="hidden-clip">Hidden. The lobby flagged this clip as fake.</div>
       ) : (
-        <ClipPlayer blobId={post.videoId} momentMs={post.momentMs} target={post.target} />
+        <ClipPlayer blobId={post.videoId} momentMs={post.momentMs} target={post.target} trail={post.trail} celebrate={post.kind === 'original'} />
       )}
       <div className="pills">
         {difficulty(post) !== undefined && <span className="pill pill-solid">Difficulty {difficulty(post)}</span>}
@@ -193,6 +194,14 @@ function VoteBox({ s, post, against }: { s: State; post: Post; against: Post }) 
   const total = post.votesUp.length + post.votesDown.length;
   const pct = total ? Math.round((post.votesUp.length / total) * 100) : 0;
   const q = post.kind === 'upped' ? 'Did they up it?' : 'Legit match?';
+  // Cheer or boo when the verdict changes while you're watching (your vote or someone else's, live).
+  const prev = useRef(v);
+  useEffect(() => {
+    if (prev.current === v) return;
+    if (v === 'won') sfx.win();
+    if (v === 'lost') sfx.lose();
+    prev.current = v;
+  }, [v]);
   return (
     <div className="vote">
       <div className="vote-q">
@@ -282,6 +291,7 @@ function Comments({ s, post }: { s: State; post: Post }) {
 function Bloopers({ post, onClose, name }: { post: Post; onClose: () => void; name?: string }) {
   const [i, setI] = useState(0);
   const id = post.missIds[i];
+  useEffect(() => sfx.bloopers(), []);
   return (
     <div className="modal" onClick={onClose}>
       <div className="modal-body" onClick={(e) => e.stopPropagation()}>

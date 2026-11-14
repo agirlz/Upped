@@ -95,6 +95,7 @@ export async function fetchAll(meId: string): Promise<Omit<State, 'version'>> {
       missIds: (p.miss_paths ?? []).map((m: string) => CLOUD_PREFIX + m),
       attempts: p.attempts,
       target: p.target ?? undefined,
+      trail: p.trail ?? undefined,
       momentMs: p.moment_ms,
       durationMs: p.duration_ms,
       verifyCode: p.verify_code,
@@ -160,8 +161,7 @@ export async function download(path: string): Promise<Blob | undefined> {
 }
 
 export async function insertPost(p: Post, paths: { video: string; thumb?: string; misses: string[] }) {
-  must(
-    await sb!.from('posts').insert({
+  const row: Record<string, unknown> = {
       id: p.id,
       lobby_id: p.lobbyId,
       author_id: p.authorId,
@@ -184,8 +184,16 @@ export async function insertPost(p: Post, paths: { video: string; thumb?: string
       duration_ms: Math.round(p.durationMs),
       verify_code: p.verifyCode,
       recorded_at: iso(p.recordedAt),
-    }),
-  );
+      trail: p.trail ?? null,
+  };
+  const res = await sb!.from('posts').insert(row);
+  // Servers set up before the trail feature lack the column: post without it.
+  if (res.error && /trail/.test(res.error.message)) {
+    delete row.trail;
+    must(await sb!.from('posts').insert(row));
+    return;
+  }
+  must(res);
 }
 
 export async function deletePostRemote(p: Post) {

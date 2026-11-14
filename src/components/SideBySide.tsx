@@ -32,6 +32,7 @@ export function SideBySide({ a, b, users }: { a: Post; b: Post; users: Record<st
               blobId={p.videoId}
               momentMs={p.momentMs}
               target={p.target}
+              trail={p.trail}
               autoPlay={false}
               loop={false}
               compact

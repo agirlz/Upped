@@ -4,6 +4,7 @@
 
 import { canvasToBlob, drawOverlay, pickMimeType } from './capture';
 import { addComment, createChallenge, createLocalLobby, createPost, createUser, DAY, getState, react, seed, vote } from './store';
+import { findTrail, FlightFrames } from './trail';
 import type { Target } from './types';
 
 interface Scene {
@@ -138,10 +139,12 @@ async function film(scene: Scene, code: string, attempt: number) {
   rec.start(200);
   const t0 = performance.now();
   let snapped = false;
+  const flight = new FlightFrames();
   await new Promise<void>((resolve) => {
     const loop = () => {
       const t = performance.now() - t0;
       draw(Math.min(t, DURATION));
+      flight.push(c, W, H, t);
       if (!snapped && t >= momentMs) {
         thumb.getContext('2d')!.drawImage(c, 0, 0, thumb.width, thumb.height);
         snapped = true;
@@ -159,6 +162,7 @@ async function film(scene: Scene, code: string, attempt: number) {
     thumb: (await canvasToBlob(thumb)) ?? undefined,
     momentMs,
     durationMs: DURATION,
+    trail: scene.makes ? findTrail(flight, { momentMs, anchor: scene.target, aspect: W / H }) ?? undefined : undefined,
   };
 }
 
@@ -230,6 +234,7 @@ export async function buildDemo(progress: (msg: string) => void): Promise<string
     target: ROOM.target,
     momentMs: filmed[0].momentMs,
     durationMs: filmed[0].durationMs,
+    trail: filmed[0].trail,
     verifyCode: filmed[0].code,
     recordedAt: now - 2 * DAY,
   });
@@ -250,6 +255,7 @@ export async function buildDemo(progress: (msg: string) => void): Promise<string
     target: ROOM.target,
     momentMs: filmed[1].momentMs,
     durationMs: filmed[1].durationMs,
+    trail: filmed[1].trail,
     verifyCode: filmed[1].code,
     recordedAt: now - DAY,
   });
@@ -270,6 +276,7 @@ export async function buildDemo(progress: (msg: string) => void): Promise<string
     target: ROOM.target,
     momentMs: filmed[2].momentMs,
     durationMs: filmed[2].durationMs,
+    trail: filmed[2].trail,
     verifyCode: filmed[2].code,
     recordedAt: now - DAY / 2,
   });

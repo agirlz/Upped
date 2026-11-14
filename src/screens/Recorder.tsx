@@ -6,6 +6,8 @@ import { Icon } from '../components/Icon';
 import { PageTitle, TopBar } from '../components/ui';
 import { bucketForFeet, difficulty, distanceInfo, DISTANCES, distanceLabel, targetInfo, TARGETS } from '../difficulty';
 import { loadPrefs, savePrefs } from '../prefs';
+import { music, sfx, stopMusic } from '../sounds';
+import { findTrail, FlightFrames, type TrailPoint } from '../trail';
 import { go } from '../router';
 import { champion, cloudMode, createPost, myLobbies, randomCode, useAppState } from '../store';
 import { RULE_OPTIONS, type DistanceBucket, type PostKind, type Spot, type Target, type TargetSize } from '../types';
@@ -65,6 +67,8 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind: forcedKind, challe
   const recRef = useRef<MediaRecorder | null>(null);
   const motion = useMemo(() => new TargetMotion(), []);
   const landing = useMemo(() => new LandingSound(), []);
+  const flight = useMemo(() => new FlightFrames(), []);
+  const fps = useRef(30);
 
   const [camError, setCamError] = useState<string>();
   const [ready, setReady] = useState(false);
@@ -124,7 +128,8 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind: forcedKind, challe
   // ---- camera ---------------------------------------------------------------
   const openVideo = (f: Facing) =>
     navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: f }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      // 60 fps where the phone offers it: twice the snapshots of the flight for the trail.
+      video: { facingMode: { ideal: f }, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 60 } },
       audio: false,
     });
 
@@ -156,6 +161,7 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind: forcedKind, challe
         return;
       }
       videoStream.current = vs;
+      fps.current = (vs.getVideoTracks()[0]?.getSettings().frameRate ?? 30) >= 50 ? 60 : 30;
       const v = videoRef.current!;
       v.srcObject = vs;
       await v.play().catch(() => {});
@@ -245,6 +251,7 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind: forcedKind, challe
       const back = L.facing === 'environment';
       let hit = false;
 
+      if (recording && back && fresh) flight.push(frameCanvas, w, h, elapsed);
       if (recording && back && fresh && L.target) {
         const d = motion.sample(frameCanvas, w, h, L.target, elapsed);
         if (d > L.maxMotion && elapsed > 500) {
@@ -351,10 +358,10 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind: forcedKind, challe
   };
 
   const beginRecording = () => {
-    const out = recCanvas.captureStream(30);
+    const out = recCanvas.captureStream(fps.current);
     audioStream.current?.getAudioTracks().forEach((t) => out.addTrack(t));
     const mimeType = pickMimeType();
-    const rec = new MediaRecorder(out, mimeType ? { mimeType, videoBitsPerSecond: 1_000_000 } : undefined);
+    const rec = new MediaRecorder(out, mimeType ? { mimeType, videoBitsPerSecond: fps.current === 60 ? 1_600_000 : 1_000_000 } : undefined);
     const chunks: Blob[] = [];
     rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
     const recordedAt = Date.now();
@@ -370,6 +377,7 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind: forcedKind, challe
       });
     };
     motion.reset();
+    flight.reset();
     Object.assign(live.current, { maxMotion: 0, stopAt: 0, ignoreUntil: 0 });
     thumbCanvas.width = 480;
     thumbCanvas.height = Math.round((480 * recCanvas.height) / recCanvas.width);
@@ -388,15 +396,33 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind: forcedKind, challe
   const judge = (made: boolean) => {
     if (!clip) return;
     if (made) {
+      sfx.madeIt();
+      music(14);
       setPhase('review');
       return;
     }
+    sfx.missed();
     setMisses((m) => [...m, clip.blob].slice(-MAX_BLOOPERS));
     URL.revokeObjectURL(clip.url);
     setClip(undefined);
     setAttempt((a) => a + 1);
     setPhase('aim');
   };
+
+  // ---- flight trail -------------------------------------------------------------
+  const [trail, setTrail] = useState<TrailPoint[] | null>(null);
+  useEffect(() => {
+    if (!clip || phase === 'aim') return;
+    const size = live.current.size;
+    const found = findTrail(flight, {
+      momentMs: clip.momentMs,
+      anchor: target ? { x: target.x, y: target.y } : undefined,
+      aspect: size ? size.w / size.h : 16 / 9,
+    });
+    setTrail(found);
+  }, [clip?.momentMs, clip?.blob, phase, target, flight]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => () => stopMusic(), []);
 
   // ---- posting --------------------------------------------------------------
   const myDifficulty = difficulty({ distance, targetSize, rules }) ?? 0;
@@ -437,6 +463,7 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind: forcedKind, challe
         durationMs: clip.durationMs,
         verifyCode: code,
         recordedAt: clip.recordedAt,
+        trail: trail ?? undefined,
       });
     } catch (e) {
       setPostErr((e as Error).message);
@@ -471,7 +498,7 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind: forcedKind, challe
       <div className="page">
         <TopBar back={() => setPhase('judge')} title={`ATTEMPT #${attempt}`} />
         <PageTitle>Nice. It's a make</PageTitle>
-        <ClipPlayer src={clip.url} momentMs={clip.momentMs} target={target} />
+        <ClipPlayer src={clip.url} momentMs={clip.momentMs} target={target} trail={trail ?? undefined} />
 
         <div className="card post-summary">
           {isReply && (
@@ -510,7 +537,7 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind: forcedKind, challe
             </span>
           </div>
           <div className="small muted">
-            to <b>{lobbyName}</b> · ✓ in-app take · code {code} · {attempt} attempt{attempt === 1 ? '' : 's'}
+            {trail ? '✨ Flight trail found · ' : ''}to <b>{lobbyName}</b> · ✓ in-app take · code {code} · {attempt} attempt{attempt === 1 ? '' : 's'}
           </div>
           <button className="link small" onClick={() => setEditing((e) => !e)}>
             {editing ? 'Hide details' : 'Edit details'}
@@ -668,7 +695,7 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind: forcedKind, challe
         )}
         {phase === 'judge' && clip && (
           <div className="cam-judge">
-            <ClipPlayer src={clip.url} momentMs={clip.momentMs} target={target} compact />
+            <ClipPlayer src={clip.url} momentMs={clip.momentMs} target={target} trail={trail ?? undefined} compact />
           </div>
         )}
       </div>

@@ -1,4 +1,5 @@
 import { go } from '../router';
+import { sfx } from '../sounds';
 import { champion, isHidden, react, repliesOf, scoreboard } from '../store';
 import { difficulty, distanceLabel } from '../difficulty';
 import { REACTIONS, type Post, type State, type User } from '../types';
@@ -77,6 +78,7 @@ export function ReactionBar({ post, meId }: { post: Post; meId: string }) {
             aria-label={`React ${e}`}
             onClick={(ev) => {
               ev.stopPropagation();
+              if (!mine) sfx.reaction(e);
               react(post.id, e);
             }}
           >

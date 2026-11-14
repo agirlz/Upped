@@ -243,6 +243,7 @@ export interface NewPost {
   misses: Blob[];
   attempts: number;
   target?: Target;
+  trail?: Post['trail'];
   momentMs: number;
   durationMs: number;
   verifyCode: string;
@@ -284,6 +285,7 @@ export async function createPost(input: NewPost): Promise<Post> {
     missIds,
     attempts: input.attempts,
     target: input.target,
+    trail: input.trail,
     momentMs: input.momentMs,
     durationMs: input.durationMs,
     verifyCode: input.verifyCode,
@@ -334,6 +336,7 @@ async function createCloudPost(input: NewPost): Promise<Post> {
     missIds: misses.map((m) => cloud.CLOUD_PREFIX + m),
     attempts: input.attempts,
     target: input.target,
+    trail: input.trail,
     momentMs: input.momentMs,
     durationMs: input.durationMs,
     verifyCode: input.verifyCode,

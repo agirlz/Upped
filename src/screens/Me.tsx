@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Icon } from '../components/Icon';
 import { Avatar, handle } from '../components/ui';
+import { loadPrefs, savePrefs } from '../prefs';
+import { music, play } from '../sounds';
 import { cloudMode, createUser, isHidden, resetEverything, switchUser, updateMe, useAppState } from '../store';
 import { AVATARS } from '../types';
 
@@ -59,6 +61,8 @@ export function MePage() {
           <span>longest grind</span>
         </div>
       </div>
+
+      <SoundSettings />
 
       <section className="card">
         <h3>Avatar</h3>
@@ -137,5 +141,42 @@ export function MePage() {
         {cloudMode ? 'Sign out of this phone' : 'Reset all data on this device'}
       </button>
     </div>
+  );
+}
+
+function SoundSettings() {
+  const [p, setP] = useState(loadPrefs);
+  const set = (patch: { sfx?: boolean; music?: boolean }) => {
+    savePrefs(patch);
+    setP(loadPrefs());
+  };
+  return (
+    <section className="card sound-settings">
+      <h3>Sound</h3>
+      <label className="toggle">
+        <input type="checkbox" checked={p.sfx} onChange={(e) => set({ sfx: e.target.checked })} />
+        <span>
+          <b>Sound effects</b>
+          <small className="muted">Air horns, crowd, boos and fails</small>
+        </span>
+      </label>
+      <label className="toggle">
+        <input type="checkbox" checked={p.music} onChange={(e) => set({ music: e.target.checked })} />
+        <span>
+          <b>Hype music</b>
+          <small className="muted">Plays after you make a shot</small>
+        </span>
+      </label>
+      <div className="chips">
+        {(['airhorn', 'siren', 'applause', 'ooh', 'letsgo', 'boo', 'fail'] as const).map((n) => (
+          <button key={n} className="chip" disabled={!p.sfx} onClick={() => play(n)}>
+            {{ airhorn: '📯 Air horn', siren: '🚨 Siren', applause: '👏 Applause', ooh: '😮 Ooooh', letsgo: "🙌 Let's go", boo: '👎 Boo', fail: '🎺 Fail' }[n]}
+          </button>
+        ))}
+        <button className="chip" disabled={!p.music} onClick={() => music(8)}>
+          🎵 Hype beat
+        </button>
+      </div>
+    </section>
   );
 }

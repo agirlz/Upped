@@ -62,6 +62,8 @@ export interface Post {
   missIds: ID[]; // blooper clips
   attempts: number; // attempt number the make happened on
   target?: Target;
+  /** Flight arc for the glowing trail, if one was found. */
+  trail?: Array<{ t: number; x: number; y: number }>;
   momentMs: number; // when the ball reached the target
   durationMs: number;
   verifyCode: string;

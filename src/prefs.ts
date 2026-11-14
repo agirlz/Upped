@@ -10,10 +10,12 @@ export interface Prefs {
   distance?: DistanceBucket;
   targetSize?: TargetSize;
   spot: Spot;
+  sfx: boolean;
+  music: boolean;
 }
 
 const KEY = 'upped-prefs';
-const DEFAULTS: Prefs = { countdown: 5, clipLen: 15, ring: 0.07, autoStop: true, spot: 'home' };
+const DEFAULTS: Prefs = { countdown: 5, clipLen: 15, ring: 0.07, autoStop: true, spot: 'home', sfx: true, music: true };
 
 export function loadPrefs(): Prefs {
   try {
