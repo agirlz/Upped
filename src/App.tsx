@@ -48,7 +48,7 @@ export function App() {
           key={query.toString()}
           lobbyId={query.get('lobby') ?? undefined}
           rootId={query.get('root') ?? undefined}
-          kind={(query.get('kind') as PostKind) || 'original'}
+          kind={(query.get('kind') as PostKind) || undefined}
           challengeId={query.get('challenge') ?? undefined}
         />
       );

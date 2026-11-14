@@ -48,14 +48,12 @@ export function PostView({ id }: { id: string }) {
         </button>
       )}
 
-      <div className="action-row">
-        <button className="btn btn-ghost" onClick={() => go(`/record?root=${id}&kind=matched`)}>
-          Match it <Icon name="check" />
-        </button>
-        <button className="btn" onClick={() => go(`/record?root=${id}&kind=upped`)}>
-          <Icon name="upRight" /> Up it
-        </button>
-      </div>
+      <button className="btn btn-big full" onClick={() => go(`/record?root=${id}`)}>
+        <Icon name="target" /> Try it
+      </button>
+      <p className="small muted center" style={{ marginTop: -4 }}>
+        Make it to match. Tag it harder to up it.
+      </p>
 
       <div className="underline-tabs">
         <button className={tab === 'replies' ? 'on' : ''} onClick={() => setTab('replies')}>

@@ -220,3 +220,76 @@ export class TargetMotion {
 export function canvasToBlob(canvas: HTMLCanvasElement, type = 'image/jpeg', q = 0.8): Promise<Blob | null> {
   return new Promise((res) => canvas.toBlob(res, type, q));
 }
+
+/**
+ * Listens for the sharp sound of a landing (a pen clinking in a cup, a ball
+ * thudding into a bin). Returns true for a sudden spike well above the
+ * recent background level.
+ */
+export class LandingSound {
+  private ctx: AudioContext | null = null;
+  private analyser: AnalyserNode | null = null;
+  private buf: Float32Array | null = null;
+  private baseline = 0.02;
+
+  start(stream: MediaStream) {
+    try {
+      const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      this.ctx = new AC();
+      const src = this.ctx.createMediaStreamSource(stream);
+      this.analyser = this.ctx.createAnalyser();
+      this.analyser.fftSize = 1024;
+      src.connect(this.analyser);
+      this.buf = new Float32Array(this.analyser.fftSize);
+      void this.ctx.resume();
+    } catch {
+      this.ctx = null;
+    }
+  }
+
+  stop() {
+    void this.ctx?.close().catch(() => {});
+    this.ctx = null;
+    this.analyser = null;
+  }
+
+  /** Call once per frame. True when this frame looks like a landing. */
+  spike(): boolean {
+    if (!this.analyser || !this.buf) return false;
+    this.analyser.getFloatTimeDomainData(this.buf);
+    let peak = 0;
+    let sum = 0;
+    for (const v of this.buf) {
+      const a = Math.abs(v);
+      if (a > peak) peak = a;
+      sum += v * v;
+    }
+    const rms = Math.sqrt(sum / this.buf.length);
+    const isSpike = peak > 0.25 && rms > Math.max(0.05, this.baseline * 5);
+    // slow-moving background level, so talking raises the bar
+    this.baseline = this.baseline * 0.95 + rms * 0.05;
+    return isSpike;
+  }
+}
+
+/** Draws `src` to fill w×h (cropping the overflow), optionally mirrored. */
+export function drawCover(
+  ctx: CanvasRenderingContext2D,
+  src: CanvasImageSource,
+  sw: number,
+  sh: number,
+  w: number,
+  h: number,
+  mirror = false,
+) {
+  const scale = Math.max(w / sw, h / sh);
+  const dw = sw * scale;
+  const dh = sh * scale;
+  ctx.save();
+  if (mirror) {
+    ctx.translate(w, 0);
+    ctx.scale(-1, 1);
+  }
+  ctx.drawImage(src, (w - dw) / 2, (h - dh) / 2, dw, dh);
+  ctx.restore();
+}
