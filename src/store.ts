@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import * as cloud from './cloud';
 import { blobPut, clearAll, kvGet, kvSet, setRemoteBlobSource } from './db';
-import type { Challenge, ID, Lobby, Post, PostKind, Spot, State, Target, User } from './types';
+import type { Challenge, DistanceBucket, ID, Lobby, Post, PostKind, Spot, State, Target, TargetSize, User } from './types';
 
 // ---------------------------------------------------------------------------
 // State container. All data lives in one object, persisted to IndexedDB.
@@ -234,6 +234,10 @@ export interface NewPost {
   title: string;
   rules: string[];
   spot?: Spot;
+  distance?: DistanceBucket;
+  distanceFt?: number;
+  measured?: boolean;
+  targetSize?: TargetSize;
   video: Blob;
   thumb?: Blob;
   misses: Blob[];
@@ -271,6 +275,10 @@ export async function createPost(input: NewPost): Promise<Post> {
     title: input.title.trim(),
     rules: input.rules,
     spot: input.spot,
+    distance: input.distance,
+    distanceFt: input.distanceFt,
+    measured: input.measured,
+    targetSize: input.targetSize,
     videoId,
     thumbId,
     missIds,
@@ -317,6 +325,10 @@ async function createCloudPost(input: NewPost): Promise<Post> {
     title: input.title.trim(),
     rules: input.rules,
     spot: input.spot,
+    distance: input.distance,
+    distanceFt: input.distanceFt,
+    measured: input.measured,
+    targetSize: input.targetSize,
     videoId: cloud.CLOUD_PREFIX + video,
     thumbId: thumb && cloud.CLOUD_PREFIX + thumb,
     missIds: misses.map((m) => cloud.CLOUD_PREFIX + m),

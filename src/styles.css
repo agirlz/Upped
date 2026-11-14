@@ -526,3 +526,25 @@ details ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
   background: var(--elevated); border: 1.5px solid var(--red); color: var(--white); font-size: 0.88rem;
   box-shadow: var(--shadow-card);
 }
+
+/* difficulty */
+.difficulty-line { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: var(--r-md); background: var(--surface); border: 1.5px solid var(--border); }
+.difficulty-line .num { font-size: 2.2rem; color: var(--lime); line-height: 1; font-style: italic; }
+
+/* AR measure overlay (shown inside the AR session through dom-overlay) */
+.ar-overlay {
+  position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; justify-content: space-between;
+  padding: calc(12px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+  background: rgba(11, 13, 18, 0.15); color: var(--white); pointer-events: none;
+}
+.ar-overlay > * { pointer-events: auto; }
+.ar-top { display: flex; justify-content: space-between; align-items: center; }
+.ar-top .icon-btn { background: rgba(11, 13, 18, 0.7); }
+.ar-readout { align-self: center; text-align: center; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8); pointer-events: none; }
+.ar-num { font-family: var(--f-display); font-style: italic; font-size: 6rem; line-height: 1; color: var(--lime); }
+.ar-unit { font-family: var(--f-display); font-size: 2rem; margin-left: 6px; }
+.ar-hint { font-family: var(--f-cond); font-weight: 800; font-style: italic; text-transform: uppercase; font-size: 1.6rem; }
+.ar-card { background: rgba(20, 24, 33, 0.92); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.feed-media .diff-badge { left: auto; right: 10px; top: auto; bottom: 34px; }
+.feed-media .corner-crown + .diff-badge, .feed-media .diff-badge { z-index: 1; }
+.chip-on .muted { color: rgba(11, 13, 18, 0.65); }

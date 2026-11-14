@@ -58,6 +58,10 @@ create table if not exists public.posts (
   title text not null default '' check (char_length(title) <= 60),
   rules text[] not null default '{}',
   spot text check (spot in ('court', 'home')),
+  distance text check (distance in ('reach', 'short', 'medium', 'long', 'deep')),
+  distance_ft real check (distance_ft is null or distance_ft between 0 and 500),
+  measured boolean not null default false,
+  target_size text check (target_size in ('small', 'medium', 'big')),
   video_path text not null,
   thumb_path text,
   miss_paths text[] not null default '{}',
@@ -70,6 +74,11 @@ create table if not exists public.posts (
   created_at timestamptz not null default now(),
   check ((kind = 'original') = (root_id is null))
 );
+-- Added after the first version: difficulty tags and AR-measured distance.
+alter table public.posts add column if not exists distance text check (distance in ('reach', 'short', 'medium', 'long', 'deep'));
+alter table public.posts add column if not exists distance_ft real check (distance_ft is null or distance_ft between 0 and 500);
+alter table public.posts add column if not exists measured boolean not null default false;
+alter table public.posts add column if not exists target_size text check (target_size in ('small', 'medium', 'big'));
 create index if not exists posts_lobby_idx on public.posts (lobby_id, created_at desc);
 create index if not exists posts_root_idx on public.posts (root_id);
 

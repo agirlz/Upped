@@ -3,6 +3,7 @@ import { ClipPlayer } from '../components/ClipPlayer';
 import { Icon } from '../components/Icon';
 import { SideBySide } from '../components/SideBySide';
 import { Avatar, handle, ReactionBar, SpotPill, timeAgo, TopBar } from '../components/ui';
+import { difficulty, distanceLabel, targetInfo } from '../difficulty';
 import { go } from '../router';
 import { addComment, canDelete, champion, deletePost, flag, isHidden, repliesOf, useAppState, verdict, votesNeeded, vote } from '../store';
 import type { Post, State } from '../types';
@@ -78,7 +79,7 @@ export function PostView({ id }: { id: string }) {
             {replies.map((p) => (
               <div key={p.id} className="card reply">
                 <PostBlock s={s} post={p} onBloopers={() => setBloopers(p)} isChamp={champ?.id === p.id} />
-                {!isHidden(s, p) && <VoteBox s={s} post={p} />}
+                {!isHidden(s, p) && <VoteBox s={s} post={p} against={opponent(p)} />}
                 {!isHidden(s, p) && (
                   <button className="btn btn-quiet btn-sm full" onClick={() => setCompare(compare === p.id ? undefined : p.id)}>
                     {compare === p.id ? 'Hide comparison' : '⇆ Compare side by side'}
@@ -125,7 +126,14 @@ function PostBlock({ s, post, onBloopers, isChamp }: { s: State; post: Post; onB
         <ClipPlayer blobId={post.videoId} momentMs={post.momentMs} target={post.target} />
       )}
       <div className="pills">
+        {difficulty(post) !== undefined && <span className="pill pill-solid">Difficulty {difficulty(post)}</span>}
         <SpotPill post={post} />
+        {distanceLabel(post) && (
+          <span className={`pill ${post.measured ? 'pill-lime' : ''}`}>
+            <Icon name="pin" /> {distanceLabel(post)}
+          </span>
+        )}
+        {targetInfo(post.targetSize) && <span className="pill">{targetInfo(post.targetSize)!.label} target</span>}
         <span className="pill">Attempt #{post.attempts}</span>
         {post.target && (
           <span className="pill pill-lime">
@@ -177,9 +185,11 @@ function PostBlock({ s, post, onBloopers, isChamp }: { s: State; post: Post; onB
   );
 }
 
-function VoteBox({ s, post }: { s: State; post: Post }) {
+function VoteBox({ s, post, against }: { s: State; post: Post; against: Post }) {
+  const mine = difficulty(post);
+  const theirs = difficulty(against);
   const v = verdict(s, post);
-  const mine = post.authorId === s.meId;
+  const isAuthor = post.authorId === s.meId;
   const up = post.votesUp.includes(s.meId!);
   const down = post.votesDown.includes(s.meId!);
   const total = post.votesUp.length + post.votesDown.length;
@@ -218,7 +228,13 @@ function VoteBox({ s, post }: { s: State; post: Post }) {
           <span style={{ width: `${pct}%` }} />
         </div>
       )}
-      {mine ? (
+      {mine !== undefined && theirs !== undefined && (
+        <p className="small muted">
+          Difficulty <b className="lime">{mine}</b> vs <b>{theirs}</b> ({s.users[against.authorId]?.name ?? 'theirs'})
+          {post.kind === 'upped' && (mine > theirs ? ' · tagged harder' : ' · not tagged harder: check it')}
+        </p>
+      )}
+      {isAuthor ? (
         <p className="small muted">You can't vote on your own clip.</p>
       ) : (
         <div className="row">

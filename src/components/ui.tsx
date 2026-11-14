@@ -1,5 +1,6 @@
 import { go } from '../router';
 import { champion, isHidden, react, repliesOf, scoreboard } from '../store';
+import { difficulty, distanceLabel } from '../difficulty';
 import { REACTIONS, type Post, type State, type User } from '../types';
 import { Thumb } from './ClipPlayer';
 import { Icon } from './Icon';
@@ -105,6 +106,12 @@ export function ChainCard({ s, post }: { s: State; post: Post }) {
       <div className="feed-media">
         <Thumb blobId={shown.thumbId} className="feed-thumb" />
         <SpotPill post={post} />
+        {difficulty(post) !== undefined && (
+          <span className="pill pill-solid diff-badge">
+            Diff {difficulty(post)}
+            {distanceLabel(post) && <> · {distanceLabel(post)}</>}
+          </span>
+        )}
         {upped && (
           <span className="corner-crown" title="Crown changed hands">
             <Icon name="crown" size={18} />

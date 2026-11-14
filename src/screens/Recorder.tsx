@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { canvasToBlob, drawOverlay, pickMimeType, TargetMotion } from '../capture';
+import { ArMeasure, arMeasureSupported } from '../components/ArMeasure';
 import { ClipPlayer } from '../components/ClipPlayer';
 import { Icon } from '../components/Icon';
 import { PageTitle, TopBar } from '../components/ui';
+import { bucketForFeet, difficulty, DISTANCES, distanceLabel, TARGETS } from '../difficulty';
 import { go } from '../router';
 import { cloudMode, createPost, myLobbies, randomCode, useAppState } from '../store';
-import { RULE_OPTIONS, type PostKind, type Spot, type Target } from '../types';
+import { RULE_OPTIONS, type DistanceBucket, type PostKind, type Spot, type Target, type TargetSize } from '../types';
 
 interface Props {
   lobbyId?: string;
@@ -57,6 +59,30 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind, challengeId }: Pro
   const [rules, setRules] = useState<string[]>(root?.rules ?? challenge?.rules ?? []);
   const [posting, setPosting] = useState(false);
   const [spot, setSpot] = useState<Spot>(root?.spot ?? 'court');
+  const [distance, setDistance] = useState<DistanceBucket | undefined>(root?.distance);
+  const [distanceFt, setDistanceFt] = useState<number>();
+  const [targetSize, setTargetSize] = useState<TargetSize | undefined>(root?.targetSize);
+  const [canMeasure, setCanMeasure] = useState(false);
+  const [measuring, setMeasuring] = useState(false);
+  const [camOn, setCamOn] = useState(true);
+
+  useEffect(() => {
+    void arMeasureSupported().then(setCanMeasure);
+  }, []);
+
+  // The AR session needs the camera, so ours is switched off while measuring.
+  const startMeasure = () => {
+    setCamOn(false);
+    setMeasuring(true);
+  };
+  const endMeasure = (ft?: number) => {
+    setMeasuring(false);
+    setCamOn(true);
+    if (ft !== undefined) {
+      setDistanceFt(ft);
+      setDistance(bucketForFeet(ft));
+    }
+  };
 
   // Live values the draw loop reads without re-subscribing.
   const live = useRef({ phase, target, attempt, countdown: 0, recStart: 0, maxMotion: 0 });
@@ -66,6 +92,7 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind, challengeId }: Pro
 
   // ---- camera -------------------------------------------------------------
   useEffect(() => {
+    if (!camOn) return;
     let cancelled = false;
     (async () => {
       if (!navigator.mediaDevices?.getUserMedia) {
@@ -101,9 +128,11 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind, challengeId }: Pro
     return () => {
       cancelled = true;
       streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+      setReady(false);
       recRef.current?.state === 'recording' && recRef.current.stop();
     };
-  }, []);
+  }, [camOn]);
 
   // ---- draw loop: camera + burned-in overlay onto the canvas we record ------
   useEffect(() => {
@@ -243,6 +272,10 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind, challengeId }: Pro
       title: title || (kind === 'original' ? 'Untitled trick shot' : root?.title ?? ''),
       rules,
       spot,
+      distance,
+      distanceFt,
+      measured: distanceFt !== undefined,
+      targetSize,
       video: clip.blob,
       thumb: clip.thumb,
       misses,
@@ -297,6 +330,39 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind, challengeId }: Pro
           />
           <small className="muted">The app guessed this from motion inside your target ring. Drag to fix it.</small>
         </label>
+        <div className="field">
+          <span>
+            Distance
+            {distanceFt !== undefined && <b className="lime"> · 📏 {distanceFt.toFixed(1)} ft measured</b>}
+          </span>
+          <div className="chips">
+            {DISTANCES.map((d) => (
+              <button
+                key={d.id}
+                className={`chip ${distance === d.id ? 'chip-on' : ''}`}
+                onClick={() => {
+                  setDistance(d.id);
+                  setDistanceFt(undefined);
+                }}
+                title={d.hint}
+              >
+                {d.label}
+              </button>
+            ))}
+          </div>
+          <small className="muted">{DISTANCES.find((d) => d.id === distance)?.hint ?? 'Pick roughly how far you were.'}</small>
+        </div>
+        <div className="field">
+          <span>Target size</span>
+          <div className="chips">
+            {TARGETS.map((t) => (
+              <button key={t.id} className={`chip ${targetSize === t.id ? 'chip-on' : ''}`} onClick={() => setTargetSize(t.id)}>
+                {t.label} <span className="muted">· {t.hint}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <DifficultyLine mine={difficulty({ distance, targetSize, rules })} theirs={root ? difficulty(root) : undefined} kind={kind} theirLabel={root ? distanceLabel(root) : undefined} />
         <div className="field">
           <span>Where</span>
           <div className="chips">
@@ -355,7 +421,7 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind, challengeId }: Pro
           {target && <span><Icon name="check" /> Target called before the shot</span>}
         </div>
         <div className="row">
-          <button className="btn grow" disabled={posting} onClick={post}>
+          <button className="btn grow" disabled={posting || !distance || !targetSize} onClick={post}>
             {posting ? (cloudMode ? 'Uploading…' : 'Posting…') : 'Post to lobby'} <Icon name="upRight" />
           </button>
         </div>
@@ -365,6 +431,7 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind, challengeId }: Pro
 
   return (
     <div className="page recorder">
+      {measuring && <ArMeasure onDone={(ft) => endMeasure(ft)} onClose={() => endMeasure()} />}
       <TopBar
         title={heading.toUpperCase()}
         right={
@@ -404,6 +471,14 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind, challengeId }: Pro
       {phase === 'aim' && ready && (
         <>
           <p className="hint">{target ? 'Target called. Tap again to move it.' : 'Tap your target on the screen to call your shot.'}</p>
+          <button className="btn btn-quiet full" onClick={canMeasure ? startMeasure : undefined} disabled={!canMeasure}>
+            <Icon name="pin" />{' '}
+            {distanceFt !== undefined
+              ? `Measured ${distanceFt.toFixed(1)} ft · measure again`
+              : canMeasure
+                ? 'Measure distance (AR)'
+                : 'AR measuring needs an Android phone'}
+          </button>
           <div className="settings">
             <label>
               Ring size
@@ -464,6 +539,29 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind, challengeId }: Pro
           <p className="muted small center">Misses are saved to your blooper reel and count toward your attempt total.</p>
         </>
       )}
+    </div>
+  );
+}
+
+function DifficultyLine({ mine, theirs, kind, theirLabel }: { mine?: number; theirs?: number; kind: PostKind; theirLabel?: string }) {
+  if (mine === undefined) return <p className="small muted">Pick a distance and target size to get a difficulty score.</p>;
+  let verdict = '';
+  if (theirs !== undefined && kind === 'upped') verdict = mine > theirs ? ' · harder than theirs ✓' : ' · not harder than theirs yet';
+  if (theirs !== undefined && kind === 'matched') verdict = mine >= theirs ? ' · at least as hard ✓' : ' · easier than theirs';
+  return (
+    <div className="difficulty-line">
+      <span className="num">{mine}</span>
+      <span>
+        <b>Difficulty</b>
+        {theirs !== undefined && (
+          <>
+            {' '}
+            vs theirs <b>{theirs}</b>
+            {theirLabel && <span className="muted"> ({theirLabel})</span>}
+          </>
+        )}
+        <span className="muted">{verdict}</span>
+      </span>
     </div>
   );
 }

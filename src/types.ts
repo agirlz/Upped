@@ -32,6 +32,8 @@ export interface Target {
 
 export type PostKind = 'original' | 'matched' | 'upped';
 export type Spot = 'court' | 'home';
+export type DistanceBucket = 'reach' | 'short' | 'medium' | 'long' | 'deep';
+export type TargetSize = 'small' | 'medium' | 'big';
 
 export interface Comment {
   id: ID;
@@ -51,6 +53,10 @@ export interface Post {
   title: string;
   rules: string[];
   spot?: Spot;
+  distance?: DistanceBucket;
+  distanceFt?: number; // set when measured with AR
+  measured?: boolean;
+  targetSize?: TargetSize;
   videoId: ID;
   thumbId?: ID;
   missIds: ID[]; // blooper clips
