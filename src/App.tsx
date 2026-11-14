@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Icon, Logo } from './components/Icon';
 import { go, useRoute } from './router';
 import { loadState, useAppState } from './store';
 import { ChallengesPage, ChallengeView } from './screens/Challenges';
@@ -19,7 +20,12 @@ export function App() {
     void loadState().then(() => setReady(true));
   }, []);
 
-  if (!ready) return <div className="splash">UPPED</div>;
+  if (!ready)
+    return (
+      <div className="splash">
+        <Logo size={64} />
+      </div>
+    );
   if (!s.meId || !s.users[s.meId]) return <Onboard />;
 
   const [section, id] = path;
@@ -64,13 +70,13 @@ export function App() {
     <div className="app">
       <main>{screen}</main>
       <nav className="nav">
-        <NavBtn on={tab === 'home'} icon="🏠" label="Lobbies" to="/" />
-        <NavBtn on={tab === 'challenges'} icon="🏆" label="Challenges" to="/challenges" />
-        <button className={`nav-rec ${tab === 'record' ? 'on' : ''}`} onClick={() => go('/record')} aria-label="Record a trick shot">
-          ●
+        <NavBtn on={tab === 'home'} icon="home" label="Lobby" to="/" />
+        <NavBtn on={tab === 'challenges'} icon="trophy" label="Challenges" to="/challenges" />
+        <button className="nav-rec" onClick={() => go('/record')} aria-label="Record a trick shot">
+          <Icon name="camera" size={26} />
         </button>
-        <NavBtn on={tab === 'ranks'} icon="📊" label="Ranks" to="/ranks" />
-        <NavBtn on={tab === 'me'} icon={s.users[s.meId].emoji} label="Me" to="/me" />
+        <NavBtn on={tab === 'ranks'} icon="chart" label="Leaderboard" to="/ranks" />
+        <NavBtn on={tab === 'me'} icon="user" label="Profile" to="/me" />
       </nav>
     </div>
   );
@@ -79,7 +85,7 @@ export function App() {
 function NavBtn({ on, icon, label, to }: { on: boolean; icon: string; label: string; to: string }) {
   return (
     <button className={`nav-btn ${on ? 'on' : ''}`} onClick={() => go(to)}>
-      <span>{icon}</span>
+      <Icon name={icon} size={22} />
       <small>{label}</small>
     </button>
   );

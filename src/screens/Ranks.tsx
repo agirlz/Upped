@@ -1,14 +1,15 @@
 import { useState } from 'react';
-import { Avatar } from '../components/ui';
+import { Icon } from '../components/Icon';
+import { Avatar, handle, PageTitle } from '../components/ui';
 import { go } from '../router';
-import { distanceKm, LOCAL_RADIUS_KM, myLobbies, POINTS, scoreboard, startOfWeek, useAppState } from '../store';
+import { distanceKm, LOCAL_RADIUS_KM, myLobbies, POINTS, scoreboard, startOfWeek, useAppState, type Score } from '../store';
 
 type Scope = 'lobby' | 'local' | 'global';
 
 export function RanksPage() {
   return (
     <div className="page">
-      <h1>Leaderboards</h1>
+      <PageTitle center>Leaderboard</PageTitle>
       <Leaderboard />
       <details className="card small">
         <summary>How points work</summary>
@@ -29,12 +30,12 @@ export function Leaderboard({ fixedLobbyId }: { fixedLobbyId?: string }) {
   const s = useAppState();
   const lobbies = myLobbies(s);
   const me = s.meId ? s.users[s.meId] : undefined;
-  const [scope, setScope] = useState<Scope>(fixedLobbyId ? 'lobby' : 'global');
+  const [scope, setScope] = useState<Scope>(fixedLobbyId || lobbies.length ? 'lobby' : 'global');
   const [lobbyId, setLobbyId] = useState(fixedLobbyId ?? lobbies[0]?.id);
-  const [week, setWeek] = useState(true);
+  const [week, setWeek] = useState(false);
   const since = week ? startOfWeek() : undefined;
 
-  let rows = [] as ReturnType<typeof scoreboard>;
+  let rows: Score[] = [];
   let note: React.ReactNode = null;
   if (scope === 'lobby') {
     rows = lobbyId ? scoreboard(s, { lobbyId, since }) : [];
@@ -43,7 +44,11 @@ export function Leaderboard({ fixedLobbyId }: { fixedLobbyId?: string }) {
     if (!me?.place) {
       note = (
         <>
-          Set your area on the <button className="link" onClick={() => go('/me')}>Me</button> tab to see players near you.
+          Set your area on your{' '}
+          <button className="link" onClick={() => go('/me')}>
+            Profile
+          </button>{' '}
+          to see players near you.
         </>
       );
     } else {
@@ -57,6 +62,9 @@ export function Leaderboard({ fixedLobbyId }: { fixedLobbyId?: string }) {
     rows = scoreboard(s, { since });
   }
 
+  const podium = rows.length >= 3 ? rows.slice(0, 3) : [];
+  const rest = podium.length ? rows.slice(3) : rows;
+
   return (
     <div className="board">
       {!fixedLobbyId && (
@@ -68,7 +76,7 @@ export function Leaderboard({ fixedLobbyId }: { fixedLobbyId?: string }) {
           ))}
         </div>
       )}
-      <div className="row">
+      <div className="row wrap">
         {scope === 'lobby' && !fixedLobbyId && lobbies.length > 1 && (
           <select className="grow" value={lobbyId} onChange={(e) => setLobbyId(e.target.value)}>
             {lobbies.map((l) => (
@@ -79,29 +87,47 @@ export function Leaderboard({ fixedLobbyId }: { fixedLobbyId?: string }) {
           </select>
         )}
         <div className="seg">
-          <button className={week ? 'on' : ''} onClick={() => setWeek(true)}>
-            This week
-          </button>
           <button className={!week ? 'on' : ''} onClick={() => setWeek(false)}>
             All time
+          </button>
+          <button className={week ? 'on' : ''} onClick={() => setWeek(true)}>
+            This week
           </button>
         </div>
       </div>
       {note && <p className="small muted">{note}</p>}
+
+      {podium.length === 3 && (
+        <div className="podium">
+          {[1, 0, 2].map((i) => {
+            const r = podium[i];
+            return (
+              <div key={r.user.id} className={`podium-card p${i + 1}`}>
+                {i === 0 && <Icon name="crown" size={40} className="podium-crown" />}
+                <Avatar user={r.user} size={i === 0 ? 60 : 48} />
+                <span className="place">{i + 1}</span>
+                <span className="who">{handle(r.user)}</span>
+                <span className="pts">{r.points.toLocaleString()} pts</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <ol className="ranks">
-        {rows.map((r, i) => (
+        {rest.map((r, i) => (
           <li key={r.user.id} className={r.user.id === s.meId ? 'me' : ''}>
-            <span className="rank">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}</span>
-            <Avatar user={r.user} size={30} />
+            <span className="rank">{i + 1 + podium.length}</span>
+            <Avatar user={r.user} size={34} />
             <span className="grow">
-              <b>{r.user.name}</b>
+              <b>{handle(r.user)}</b>
               <span className="small muted">
                 {' '}
                 · {r.posts} clip{r.posts === 1 ? '' : 's'}
                 {r.crowns > 0 && ` · 👑 ${r.crowns}`}
               </span>
             </span>
-            <b className="pts">{r.points}</b>
+            <span className="pts">{r.points.toLocaleString()} pts</span>
           </li>
         ))}
       </ol>

@@ -35,31 +35,40 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, w: number, h: number,
     const cx = o.target.x * w;
     const cy = o.target.y * h;
     const r = o.target.r * w;
-    ctx.lineWidth = Math.max(2, u * 0.6);
-    ctx.strokeStyle = o.hit ? '#c6ff3d' : 'rgba(198,255,61,0.9)';
+    ctx.lineWidth = Math.max(2, u * 0.55);
+    ctx.strokeStyle = '#c6ff3d';
     ctx.shadowColor = '#c6ff3d';
-    ctx.shadowBlur = o.hit ? u * 4 : u * 1.5;
-    ctx.setLineDash(o.hit ? [] : [u * 1.6, u * 1.1]);
+    ctx.shadowBlur = o.hit ? u * 5 : u * 2;
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.shadowBlur = 0;
-    // tick marks
+    // crosshair ticks crossing the ring
     for (let i = 0; i < 4; i++) {
       const a = (i * Math.PI) / 2;
       ctx.beginPath();
-      ctx.moveTo(cx + Math.cos(a) * (r + u * 0.6), cy + Math.sin(a) * (r + u * 0.6));
-      ctx.lineTo(cx + Math.cos(a) * (r + u * 2), cy + Math.sin(a) * (r + u * 2));
+      ctx.moveTo(cx + Math.cos(a) * (r - u * 1.6), cy + Math.sin(a) * (r - u * 1.6));
+      ctx.lineTo(cx + Math.cos(a) * (r + u * 2.4), cy + Math.sin(a) * (r + u * 2.4));
       ctx.stroke();
     }
-    label(ctx, 'CALLED SHOT', cx, Math.max(u * 3, cy - r - u * 3.2), u, '#c6ff3d', '#0d0f14', 'center');
+    // centre dot
+    ctx.fillStyle = '#c6ff3d';
+    ctx.beginPath();
+    ctx.arc(cx, cy, Math.max(1.5, u * 0.35), 0, Math.PI * 2);
+    ctx.fill();
+    if (o.hit) {
+      ctx.fillStyle = 'rgba(198,255,61,0.18)';
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+    bracketLabel(ctx, 'CALLED SHOT', cx, Math.max(u * 4, cy - r - u * 5), u);
   }
 
   // Verification strip: app name, session code, wall clock.
   const time = o.clock.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  label(ctx, `UPPED ✓ ${o.code} · ${time}`, u * 2, u * 3, u, 'rgba(13,15,20,0.75)', '#ffffff', 'left');
-  label(ctx, `ATTEMPT ${o.attempt}`, w - u * 2, u * 3, u, 'rgba(13,15,20,0.75)', '#ffb13d', 'right');
+  label(ctx, `UPPED ✓ ${o.code} · ${time}`, u * 2, u * 3, u, 'rgba(11,13,18,0.78)', '#ffffff', 'left');
+  label(ctx, `ATTEMPT #${o.attempt}`, w - u * 2, u * 3, u, 'rgba(11,13,18,0.78)', '#c6ff3d', 'right');
 
   if (o.recording) {
     const s = (o.elapsedMs / 1000).toFixed(1);
@@ -67,14 +76,16 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, w: number, h: number,
     ctx.beginPath();
     ctx.arc(w - u * 3.5, h - u * 3.5, u * 1.1, 0, Math.PI * 2);
     ctx.fill();
-    label(ctx, `${s}s`, w - u * 5.5, h - u * 3.5, u, 'rgba(13,15,20,0.75)', '#ffffff', 'right');
+    label(ctx, `${s}s`, w - u * 5.5, h - u * 3.5, u, 'rgba(11,13,18,0.78)', '#ffffff', 'right');
   }
 
   if (o.countdown !== undefined && o.countdown > 0) {
-    ctx.fillStyle = 'rgba(13,15,20,0.45)';
+    ctx.fillStyle = 'rgba(11,13,18,0.5)';
     ctx.fillRect(0, 0, w, h);
-    ctx.fillStyle = '#ffffff';
-    ctx.font = `800 ${u * 22}px system-ui, sans-serif`;
+    ctx.fillStyle = '#c6ff3d';
+    ctx.shadowColor = '#c6ff3d';
+    ctx.shadowBlur = u * 3;
+    ctx.font = `italic ${u * 26}px 'Bebas Neue', Impact, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(String(o.countdown), w / 2, h / 2);
@@ -92,7 +103,7 @@ function label(
   fg: string,
   align: CanvasTextAlign,
 ) {
-  ctx.font = `700 ${Math.max(11, u * 2.1)}px system-ui, sans-serif`;
+  ctx.font = `italic 700 ${Math.max(12, u * 2.4)}px 'Barlow Condensed', system-ui, sans-serif`;
   const tw = ctx.measureText(text).width;
   const padX = u * 1.1;
   const hgt = Math.max(16, u * 3.4);
@@ -106,6 +117,31 @@ function label(
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   ctx.fillText(text, left + padX, y + 1);
+}
+
+/** "CALLED SHOT" title with lime corner brackets, as in the camera mockup. */
+function bracketLabel(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, u: number) {
+  ctx.font = `italic ${Math.max(16, u * 4)}px 'Bebas Neue', Impact, sans-serif`;
+  const tw = ctx.measureText(text).width;
+  const pw = tw + u * 4;
+  const ph = Math.max(22, u * 5.4);
+  const l = x - pw / 2;
+  const t = y - ph / 2;
+  ctx.fillStyle = 'rgba(11,13,18,0.72)';
+  ctx.fillRect(l, t, pw, ph);
+  ctx.strokeStyle = '#c6ff3d';
+  ctx.lineWidth = Math.max(2, u * 0.45);
+  const k = u * 1.6;
+  ctx.beginPath();
+  ctx.moveTo(l, t + k); ctx.lineTo(l, t); ctx.lineTo(l + k, t);
+  ctx.moveTo(l + pw - k, t); ctx.lineTo(l + pw, t); ctx.lineTo(l + pw, t + k);
+  ctx.moveTo(l + pw, t + ph - k); ctx.lineTo(l + pw, t + ph); ctx.lineTo(l + pw - k, t + ph);
+  ctx.moveTo(l + k, t + ph); ctx.lineTo(l, t + ph); ctx.lineTo(l, t + ph - k);
+  ctx.stroke();
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, x, y + u * 0.3);
 }
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {

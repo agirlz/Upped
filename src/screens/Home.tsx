@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Avatar, Empty, timeAgo } from '../components/ui';
+import { Icon, Logo } from '../components/Icon';
+import { Avatar, Empty, PageTitle, timeAgo } from '../components/ui';
 import { buildDemo } from '../demo';
 import { go } from '../router';
 import { createLobby, createUser, joinLobby, myLobbies, useAppState } from '../store';
@@ -10,8 +11,32 @@ export function Onboard() {
   const [emoji, setEmoji] = useState(AVATARS[0]);
   return (
     <div className="page onboard">
-      <div className="logo">UPPED</div>
-      <p className="tagline">Post a trick shot. Your friends match it, up it, and vote on who wins.</p>
+      <div className="hero-logo">
+        <Logo size={88} />
+      </div>
+      <p className="tagline">
+        The trick shot app
+        <br />
+        for <em>friend groups</em>
+      </p>
+      <div className="how">
+        <div>
+          <Icon name="play" size={26} />
+          Post trick shots
+        </div>
+        <div>
+          <Icon name="upRight" size={26} />
+          Match or up it
+        </div>
+        <div>
+          <Icon name="users" size={26} />
+          Vote for a winner
+        </div>
+        <div>
+          <Icon name="crown" size={26} />
+          Hold the crown
+        </div>
+      </div>
       <label className="field">
         <span>Your name</span>
         <input value={name} maxLength={20} placeholder="What your friends call you" onChange={(e) => setName(e.target.value)} />
@@ -27,7 +52,7 @@ export function Onboard() {
         </div>
       </div>
       <button className="btn full" disabled={!name.trim()} onClick={() => createUser(name, emoji)}>
-        Let's go
+        Let's go <Icon name="upRight" />
       </button>
     </div>
   );
@@ -65,12 +90,14 @@ export function Home() {
 
   return (
     <div className="page">
-      <header className="page-head">
-        <div className="logo small-logo">UPPED</div>
-      </header>
-      <h1>Your lobbies</h1>
+      <div className="topbar">
+        <span />
+        <Logo size={36} />
+        <span />
+      </div>
+      <PageTitle>Your lobbies</PageTitle>
       {lobbies.length === 0 && (
-        <Empty icon="🏀" title="No lobbies yet">
+        <Empty icon="users" title="No lobbies yet">
           <p className="muted">Start one for your group, join with a friend's code, or try the demo lobby.</p>
         </Empty>
       )}
@@ -81,7 +108,7 @@ export function Home() {
           return (
             <article key={l.id} className="card lobby-card" onClick={() => go(`/lobby/${l.id}`)}>
               <div>
-                <h3>{l.name}</h3>
+                <h3 className="title">{l.name}</h3>
                 <div className="small muted">
                   {l.memberIds.length} member{l.memberIds.length === 1 ? '' : 's'} · {posts.length} clips
                   {last && <> · last clip {timeAgo(last.createdAt)}</>}
@@ -100,7 +127,7 @@ export function Home() {
       {mode === 'none' ? (
         <div className="row wrap">
           <button className="btn grow" onClick={() => setMode('create')}>
-            + New lobby
+            <Icon name="plus" /> New lobby
           </button>
           <button className="btn btn-ghost grow" onClick={() => setMode('join')}>
             Join with code
@@ -120,7 +147,7 @@ export function Home() {
           </label>
           {err && <p className="error">{err}</p>}
           <div className="row">
-            <button className="btn btn-ghost" onClick={() => (setMode('none'), setValue(''), setErr(''))}>
+            <button className="btn btn-quiet" onClick={() => (setMode('none'), setValue(''), setErr(''))}>
               Cancel
             </button>
             <button className="btn grow" disabled={!value.trim()} onClick={submit}>
@@ -130,8 +157,8 @@ export function Home() {
         </div>
       )}
 
-      <button className="btn btn-ghost full demo-btn" disabled={!!demoBusy} onClick={demo}>
-        {demoBusy ?? '✨ Load a demo lobby with sample clips'}
+      <button className="btn btn-quiet full" disabled={!!demoBusy} onClick={demo}>
+        {demoBusy ?? 'Load a demo lobby with sample clips'}
       </button>
     </div>
   );

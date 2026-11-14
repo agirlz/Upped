@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { canvasToBlob, drawOverlay, pickMimeType, TargetMotion } from '../capture';
 import { ClipPlayer } from '../components/ClipPlayer';
+import { Icon } from '../components/Icon';
+import { PageTitle, TopBar } from '../components/ui';
 import { go } from '../router';
 import { createPost, myLobbies, randomCode, useAppState } from '../store';
-import { RULE_OPTIONS, type PostKind, type Target } from '../types';
+import { RULE_OPTIONS, type PostKind, type Spot, type Target } from '../types';
 
 interface Props {
   lobbyId?: string;
@@ -53,6 +55,7 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind, challengeId }: Pro
   const [title, setTitle] = useState('');
   const [rules, setRules] = useState<string[]>(root?.rules ?? challenge?.rules ?? []);
   const [posting, setPosting] = useState(false);
+  const [spot, setSpot] = useState<Spot>(root?.spot ?? 'court');
 
   // Live values the draw loop reads without re-subscribing.
   const live = useRef({ phase, target, attempt, countdown: 0, recStart: 0, maxMotion: 0 });
@@ -234,6 +237,7 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind, challengeId }: Pro
       challengeId,
       title: title || (kind === 'original' ? 'Untitled trick shot' : root?.title ?? ''),
       rules,
+      spot,
       video: clip.blob,
       thumb: clip.thumb,
       misses,
@@ -250,12 +254,13 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind, challengeId }: Pro
 
   // ---- UI -------------------------------------------------------------------
   const heading =
-    kind === 'matched' ? 'Match it' : kind === 'upped' ? 'Up it 🔼' : challenge ? 'Challenge entry' : 'New trick shot';
+    kind === 'matched' ? 'Match it' : kind === 'upped' ? 'Up it' : challenge ? 'Challenge entry' : 'Called shot';
+  const close = () => history.back();
 
   if (!lobbies.length) {
     return (
       <div className="page">
-        <h1>{heading}</h1>
+        <PageTitle>{heading}</PageTitle>
         <p className="muted">Join or create a lobby first so your shot has somewhere to go.</p>
         <button className="btn" onClick={() => go('/')}>
           Go to lobbies
@@ -267,7 +272,8 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind, challengeId }: Pro
   if (phase === 'review' && clip) {
     return (
       <div className="page">
-        <h1>🎯 Nice. Make on attempt #{attempt}</h1>
+        <TopBar back={() => setPhase('judge')} title={`ATTEMPT #${attempt}`} />
+        <PageTitle>Nice. It's a make</PageTitle>
         <ClipPlayer src={clip.url} momentMs={clip.momentMs} target={target} />
         <label className="field">
           <span>Moment the ball hit the target ({(clip.momentMs / 1000).toFixed(1)}s)</span>
@@ -281,6 +287,16 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind, challengeId }: Pro
           />
           <small className="muted">The app guessed this from motion inside your target ring. Drag to fix it.</small>
         </label>
+        <div className="field">
+          <span>Where</span>
+          <div className="chips">
+            {(['court', 'home'] as const).map((sp) => (
+              <button key={sp} className={`chip ${spot === sp ? 'chip-on' : ''}`} onClick={() => setSpot(sp)}>
+                <Icon name={sp === 'court' ? 'hoop' : 'home'} /> {sp === 'court' ? 'Court' : 'At home'}
+              </button>
+            ))}
+          </div>
+        </div>
         {kind === 'original' && (
           <>
             <label className="field">
@@ -321,18 +337,15 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind, challengeId }: Pro
           </label>
         )}
         <div className="verify-box">
-          <b>Verification on this clip</b>
-          <span>✓ Recorded in the app, one continuous take</span>
-          <span>✓ Session code {code} and clock burned into the video</span>
-          <span>✓ {attempt} attempt{attempt === 1 ? '' : 's'} logged ({misses.length} blooper clip{misses.length === 1 ? '' : 's'} kept)</span>
-          {target && <span>✓ Target called before the shot</span>}
+          <b>Verified take</b>
+          <span><Icon name="check" /> Recorded in the app, one continuous take</span>
+          <span><Icon name="check" /> Session code {code} and clock burned into the video</span>
+          <span><Icon name="check" /> {attempt} attempt{attempt === 1 ? '' : 's'} logged ({misses.length} blooper clip{misses.length === 1 ? '' : 's'} kept)</span>
+          {target && <span><Icon name="check" /> Target called before the shot</span>}
         </div>
         <div className="row">
-          <button className="btn btn-ghost" onClick={() => setPhase('judge')}>
-            Back
-          </button>
           <button className="btn grow" disabled={posting} onClick={post}>
-            {posting ? 'Posting…' : 'Post to lobby'}
+            {posting ? 'Posting…' : 'Post to lobby'} <Icon name="upRight" />
           </button>
         </div>
       </div>
@@ -341,10 +354,14 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind, challengeId }: Pro
 
   return (
     <div className="page recorder">
-      <div className="rec-head">
-        <h1>{heading}</h1>
-        <span className="pill">Attempt #{attempt}</span>
-      </div>
+      <TopBar
+        title={heading.toUpperCase()}
+        right={
+          <button className="icon-btn" onClick={close} aria-label="Close">
+            <Icon name="x" size={24} />
+          </button>
+        }
+      />
       {root && (
         <p className="muted small">
           {kind === 'matched' ? 'Do the same shot: ' : 'Do something harder than: '}
@@ -370,9 +387,12 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind, challengeId }: Pro
         )}
       </div>
 
+      {(phase === 'aim' || phase === 'countdown' || phase === 'recording') && ready && (
+        <div className="attempt-tag">Attempt #{attempt}</div>
+      )}
       {phase === 'aim' && ready && (
         <>
-          <p className="hint">{target ? 'Target called. Tap again to move it.' : '👆 Tap your target on the screen to call your shot.'}</p>
+          <p className="hint">{target ? 'Target called. Tap again to move it.' : 'Tap your target on the screen to call your shot.'}</p>
           <div className="settings">
             <label>
               Ring size
@@ -399,29 +419,35 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind, challengeId }: Pro
               </select>
             </label>
           </div>
-          <button className="btn btn-rec full" onClick={startAttempt}>
-            ● Record attempt #{attempt}
-          </button>
-          <p className="muted small center">
-            Prop your phone up, tap record, get in position. It stops by itself after {clipLen}s.
-          </p>
+          <div className="rec-controls">
+            <span className="small muted center">{misses.length > 0 ? `${misses.length} blooper${misses.length === 1 ? '' : 's'}` : ''}</span>
+            <button className="rec-btn" onClick={startAttempt} aria-label={`Record attempt ${attempt}`}>
+              <span />
+            </button>
+            <span />
+          </div>
+          <p className="rec-label">Tap to record · stops by itself after {clipLen}s</p>
         </>
       )}
       {phase === 'countdown' && <p className="hint big">Get in position…</p>}
       {phase === 'recording' && (
-        <button className="btn btn-ghost full" onClick={stopEarly}>
-          ■ Stop now
-        </button>
+        <div className="rec-controls">
+          <span />
+          <button className="rec-btn stop" onClick={stopEarly} aria-label="Stop recording">
+            <span />
+          </button>
+          <span />
+        </div>
       )}
       {phase === 'judge' && (
         <>
           <p className="hint big">Did it go in?</p>
           <div className="row">
             <button className="btn btn-miss grow" onClick={() => judge(false)}>
-              ✗ Missed
+              <Icon name="x" /> Missed
             </button>
             <button className="btn grow" onClick={() => judge(true)}>
-              🎯 Made it!
+              <Icon name="target" /> Made it!
             </button>
           </div>
           <p className="muted small center">Misses are saved to your blooper reel and count toward your attempt total.</p>

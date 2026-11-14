@@ -31,6 +31,7 @@ export interface Target {
 }
 
 export type PostKind = 'original' | 'matched' | 'upped';
+export type Spot = 'court' | 'home';
 
 export interface Comment {
   id: ID;
@@ -49,6 +50,7 @@ export interface Post {
   challengeId?: ID;
   title: string;
   rules: string[];
+  spot?: Spot;
   videoId: ID;
   thumbId?: ID;
   missIds: ID[]; // blooper clips

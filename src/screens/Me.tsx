@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Avatar } from '../components/ui';
+import { Icon } from '../components/Icon';
+import { Avatar, handle } from '../components/ui';
 import { createUser, isHidden, resetEverything, switchUser, updateMe, useAppState } from '../store';
 import { AVATARS } from '../types';
 
@@ -35,7 +36,7 @@ export function MePage() {
       <div className="me-head">
         <Avatar user={me} size={64} />
         <div>
-          <h1>{me.name}</h1>
+          <h1 className="title" style={{ fontSize: '1.9rem' }}>{handle(me)}</h1>
           <div className="small muted">Playing since {new Date(me.createdAt).toLocaleDateString()}</div>
         </div>
       </div>
@@ -71,13 +72,14 @@ export function MePage() {
       </section>
 
       <section className="card">
-        <h3>My area (for "Near me" rankings)</h3>
+        <h3>My area</h3>
+        <p className="small muted">Used for the "Near me" leaderboard.</p>
         <label className="field">
           <span>Area name (optional)</span>
           <input value={label} maxLength={30} placeholder="e.g. Eastside courts" onChange={(e) => setLabel(e.target.value)} />
         </label>
-        <button className="btn btn-ghost full" onClick={locate}>
-          📍 {me.place ? 'Update my area' : 'Use my location'}
+        <button className="btn btn-quiet full" onClick={locate}>
+          <Icon name="pin" /> {me.place ? 'Update my area' : 'Use my location'}
         </button>
         {placeMsg && <p className="small muted">{placeMsg}</p>}
         {me.place && (
@@ -110,8 +112,8 @@ export function MePage() {
           }}
         >
           <input className="grow" value={newName} maxLength={20} placeholder="Friend's name" onChange={(e) => setNewName(e.target.value)} />
-          <button className="btn" disabled={!newName.trim()}>
-            Add &amp; switch
+          <button className="btn btn-sm" disabled={!newName.trim()}>
+            Add
           </button>
         </form>
       </section>

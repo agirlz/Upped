@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { blobUrl } from '../db';
 import type { Target } from '../types';
+import { Icon } from './Icon';
 
 export interface ClipPlayerHandle {
   /** Restart from the beginning after `delayMs` (used to sync two clips). */
@@ -28,7 +29,7 @@ const SLOW_AFTER = 700;
  * around the moment the ball reached the called target.
  */
 export const ClipPlayer = forwardRef<ClipPlayerHandle, Props>(function ClipPlayer(
-  { blobId, src, momentMs, target, slowmo = true, autoPlay = true, loop = true, compact, stampText = '🎯 CALLED IT' },
+  { blobId, src, momentMs, target, slowmo = true, autoPlay = true, loop = true, compact, stampText = 'CALLED IT' },
   ref,
 ) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -126,14 +127,27 @@ export const ClipPlayer = forwardRef<ClipPlayerHandle, Props>(function ClipPlaye
           />
         )}
         {!url && <div className="clip-loading">Loading clip…</div>}
-        {stamp && <div className="clip-stamp">{stampText}</div>}
+        {stamp && stampText && (
+          <div className="clip-stamp">
+            <span className="stamp-target">
+              <Icon name="target" size={compact ? 14 : 22} />
+            </span>
+            {stampText}
+          </div>
+        )}
         {zoom && <div className="clip-slowmo">SLOW-MO</div>}
-        {!playing && url && <div className="clip-play">▶</div>}
+        {!playing && url && (
+          <div className="clip-play">
+            <span className="play-btn">
+              <Icon name="play" size={22} />
+            </span>
+          </div>
+        )}
       </div>
       {!compact && (
         <div className="clip-bar">
           <button className="chip" onClick={() => setMuted((m) => !m)}>
-            {muted ? '🔇 Sound off' : '🔊 Sound on'}
+            <Icon name={muted ? 'mute' : 'sound'} /> {muted ? 'Sound off' : 'Sound on'}
           </button>
           <button
             className="chip"
@@ -144,7 +158,7 @@ export const ClipPlayer = forwardRef<ClipPlayerHandle, Props>(function ClipPlaye
               void v.play().catch(() => {});
             }}
           >
-            ⟲ Replay the moment
+            <Icon name="replay" /> Replay the moment
           </button>
         </div>
       )}

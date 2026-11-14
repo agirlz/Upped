@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Avatar, ChainCard, Empty, timeLeft } from '../components/ui';
+import { Icon, Logo } from '../components/Icon';
+import { Avatar, ChainCard, CrownBanner, Empty, TopBar, timeLeft } from '../components/ui';
 import { go } from '../router';
 import { createChallenge, DAY, useAppState, visibleChallenges } from '../store';
 import { RULE_OPTIONS } from '../types';
@@ -29,10 +30,8 @@ export function LobbyView({ id }: { id: string }) {
 
   return (
     <div className="page">
-      <button className="back" onClick={() => go('/')}>
-        ‹ Lobbies
-      </button>
-      <h1>{lobby.name}</h1>
+      <TopBar back={() => go('/')} title={<Logo size={30} />} />
+      <h1 className="title" style={{ fontSize: '1.6rem' }}>{lobby.name}</h1>
       <div className="lobby-meta">
         <div className="avatars">
           {lobby.memberIds.map((m) => (
@@ -40,7 +39,7 @@ export function LobbyView({ id }: { id: string }) {
           ))}
         </div>
         <button className="chip" onClick={copy}>
-          {copied ? 'Copied!' : `Invite code: ${lobby.code}`}
+          <Icon name="share" /> {copied ? 'Copied!' : `Invite code: ${lobby.code}`}
         </button>
       </div>
 
@@ -54,11 +53,12 @@ export function LobbyView({ id }: { id: string }) {
 
       {tab === 'feed' && (
         <>
+          <CrownBanner s={s} lobbyId={id} />
           <button className="btn full" onClick={() => go(`/record?lobby=${id}`)}>
-            ● Post a trick shot
+            <Icon name="camera" /> Post a trick shot
           </button>
           {roots.length === 0 && (
-            <Empty icon="🎯" title="No shots yet">
+            <Empty icon="target" title="No shots yet">
               <p className="muted">Be first. Call your target, make the shot, and dare everyone to beat it.</p>
             </Empty>
           )}
@@ -77,9 +77,11 @@ export function LobbyView({ id }: { id: string }) {
           <div className="stack">
             {challenges.map((c) => (
               <article key={c.id} className="card" onClick={() => go(`/challenge/${c.id}`)}>
-                <h3>🏆 {c.title}</h3>
+                <h3 className="title">{c.title}</h3>
                 <p className="small muted">{c.description}</p>
-                <span className="pill">{timeLeft(c.endsAt)}</span>
+                <span className="pill pill-red">
+                  <Icon name="clock" /> {timeLeft(c.endsAt)}
+                </span>
               </article>
             ))}
           </div>
@@ -100,7 +102,7 @@ function NewChallenge({ lobbyId }: { lobbyId: string }) {
   if (!open)
     return (
       <button className="btn full" onClick={() => setOpen(true)}>
-        + Set a challenge
+        <Icon name="trophy" /> Set a challenge
       </button>
     );
   return (
@@ -138,7 +140,7 @@ function NewChallenge({ lobbyId }: { lobbyId: string }) {
         </select>
       </label>
       <div className="row">
-        <button className="btn btn-ghost" onClick={() => setOpen(false)}>
+        <button className="btn btn-quiet" onClick={() => setOpen(false)}>
           Cancel
         </button>
         <button

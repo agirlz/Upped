@@ -1,34 +1,24 @@
 import { useState } from 'react';
 import { ClipPlayer } from '../components/ClipPlayer';
+import { Icon } from '../components/Icon';
 import { SideBySide } from '../components/SideBySide';
-import { Avatar, ReactionBar, timeAgo } from '../components/ui';
+import { Avatar, handle, ReactionBar, SpotPill, timeAgo, TopBar } from '../components/ui';
 import { go } from '../router';
-import {
-  addComment,
-  champion,
-  flag,
-  isHidden,
-  repliesOf,
-  useAppState,
-  verdict,
-  votesNeeded,
-  vote,
-} from '../store';
+import { addComment, champion, flag, isHidden, repliesOf, useAppState, verdict, votesNeeded, vote } from '../store';
 import type { Post, State } from '../types';
 
 export function PostView({ id }: { id: string }) {
   const s = useAppState();
   const root = s.posts[id];
+  const [tab, setTab] = useState<'replies' | 'comments'>('replies');
   const [compare, setCompare] = useState<string>();
   const [bloopers, setBloopers] = useState<Post>();
   if (!root) return <div className="page">Clip not found.</div>;
 
   const replies = repliesOf(s, id);
   const champ = champion(s, id);
-  const author = s.users[root.authorId];
   const challenge = root.challengeId ? s.challenges[root.challengeId] : undefined;
-  const lobby = s.lobbies[root.lobbyId];
-  const compareWith = compare ? s.posts[compare] : undefined;
+  const need = votesNeeded(s, root.lobbyId);
   // Compare a reply against whatever held the crown when it was posted.
   const opponent = (p: Post) =>
     [...replies]
@@ -37,58 +27,73 @@ export function PostView({ id }: { id: string }) {
 
   return (
     <div className="page">
-      <button className="back" onClick={() => go(`/lobby/${root.lobbyId}`)}>
-        ‹ {lobby?.name ?? 'Lobby'}
-      </button>
+      <TopBar back={() => go(`/lobby/${root.lobbyId}`)} title="SHOT" />
 
       {champ && champ.id !== root.id && (
         <div className="crown-banner">
-          👑 <b>{s.users[champ.authorId]?.name}</b> holds this one. Up their version to take the crown.
+          <Avatar user={s.users[champ.authorId]} size={40} />
+          <div className="label grow">
+            Holds the crown
+            <small>{handle(s.users[champ.authorId])} upped this. Beat their version to take it.</small>
+          </div>
+          <Icon name="crown" size={28} className="gold" />
         </div>
       )}
 
       <PostBlock s={s} post={root} onBloopers={() => setBloopers(root)} isChamp={champ?.id === root.id} />
       {challenge && (
-        <button className="tag tag-link" onClick={() => go(`/challenge/${challenge.id}`)}>
-          🏆 Entry for: {challenge.title}
+        <button className="pill pill-red" onClick={() => go(`/challenge/${challenge.id}`)}>
+          <Icon name="trophy" /> Entry for: {challenge.title}
         </button>
       )}
 
-      <div className="row">
-        <button className="btn btn-ghost grow" onClick={() => go(`/record?root=${id}&kind=matched`)}>
-          = Match it
+      <div className="action-row">
+        <button className="btn btn-ghost" onClick={() => go(`/record?root=${id}&kind=matched`)}>
+          Match it <Icon name="check" />
         </button>
-        <button className="btn grow" onClick={() => go(`/record?root=${id}&kind=upped`)}>
-          🔼 Up it
+        <button className="btn" onClick={() => go(`/record?root=${id}&kind=upped`)}>
+          <Icon name="upRight" /> Up it
         </button>
       </div>
 
-      <h2>
-        Replies <span className="muted">({replies.length})</span>
-      </h2>
-      {replies.length === 0 && <p className="muted">Nobody has tried it yet. Will you be first?</p>}
-      <p className="small muted">
-        {votesNeeded(s, root.lobbyId)} vote{votesNeeded(s, root.lobbyId) === 1 ? '' : 's'} decide a reply in this lobby.
-      </p>
+      <div className="underline-tabs">
+        <button className={tab === 'replies' ? 'on' : ''} onClick={() => setTab('replies')}>
+          Replies ({replies.length})
+        </button>
+        <button className={tab === 'comments' ? 'on' : ''} onClick={() => setTab('comments')}>
+          Comments ({root.comments.length})
+        </button>
+      </div>
 
-      <div className="stack">
-        {replies.map((p) => (
-          <div key={p.id} className="card reply">
-            <PostBlock s={s} post={p} onBloopers={() => setBloopers(p)} isChamp={champ?.id === p.id} />
-            {!isHidden(s, p) && <VoteBox s={s} post={p} />}
-            {!isHidden(s, p) && (
-              <button className="btn btn-ghost full" onClick={() => setCompare(compare === p.id ? undefined : p.id)}>
-                {compare === p.id ? 'Hide comparison' : '⇆ Compare side by side'}
-              </button>
-            )}
-            {compare === p.id && compareWith && <SideBySide a={opponent(p)} b={p} users={s.users} />}
+      {tab === 'replies' && (
+        <>
+          {replies.length === 0 ? (
+            <p className="muted">Nobody has tried it yet. Will you be first?</p>
+          ) : (
+            <p className="small muted">
+              {need} vote{need === 1 ? '' : 's'} decide{need === 1 ? 's' : ''} a reply in this lobby.
+            </p>
+          )}
+          <div className="stack">
+            {replies.map((p) => (
+              <div key={p.id} className="card reply">
+                <PostBlock s={s} post={p} onBloopers={() => setBloopers(p)} isChamp={champ?.id === p.id} />
+                {!isHidden(s, p) && <VoteBox s={s} post={p} />}
+                {!isHidden(s, p) && (
+                  <button className="btn btn-quiet btn-sm full" onClick={() => setCompare(compare === p.id ? undefined : p.id)}>
+                    {compare === p.id ? 'Hide comparison' : '⇆ Compare side by side'}
+                  </button>
+                )}
+                {compare === p.id && <SideBySide a={opponent(p)} b={p} users={s.users} />}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </>
+      )}
 
-      <Comments s={s} post={root} />
+      {tab === 'comments' && <Comments s={s} post={root} />}
 
-      {bloopers && <Bloopers post={bloopers} onClose={() => setBloopers(undefined)} name={author?.name} />}
+      {bloopers && <Bloopers post={bloopers} onClose={() => setBloopers(undefined)} name={s.users[bloopers.authorId]?.name} />}
     </div>
   );
 }
@@ -98,32 +103,40 @@ function PostBlock({ s, post, onBloopers, isChamp }: { s: State; post: Post; onB
   const hidden = isHidden(s, post);
   const mine = post.authorId === s.meId;
   const flagged = post.flags.includes(s.meId!);
-  const kindLabel = post.kind === 'upped' ? '🔼 Upped' : post.kind === 'matched' ? '= Matched' : null;
   return (
     <div className="post">
+      {post.kind === 'original' && <h2 className="title" style={{ fontSize: '1.6rem' }}>{post.title}</h2>}
       <div className="post-head">
-        <Avatar user={author} />
-        <div className="grow">
-          <div>
-            <b>{author?.name}</b> {kindLabel && <span className="pill">{kindLabel}</span>} {isChamp && <span className="pill pill-gold">👑 Holds the crown</span>}
-          </div>
-          <div className="small muted">{timeAgo(post.createdAt)}</div>
+        <Avatar user={author} size={post.kind === 'original' ? 30 : 36} />
+        <div className="grow byline">
+          <b>{handle(author)}</b> · {timeAgo(post.createdAt)}
+          {post.kind === 'matched' && <span className="pill pill-lime">Matched it</span>}
+          {post.kind === 'upped' && <span className="pill pill-lime">Upped it</span>}
         </div>
+        {isChamp && (
+          <span className="pill pill-gold">
+            <Icon name="crown" /> Holds the crown
+          </span>
+        )}
       </div>
-      {post.kind === 'original' && <h2 className="post-title">{post.title}</h2>}
       {hidden ? (
-        <div className="hidden-clip">🚩 Hidden. The lobby flagged this clip as fake.</div>
+        <div className="hidden-clip">Hidden. The lobby flagged this clip as fake.</div>
       ) : (
         <ClipPlayer blobId={post.videoId} momentMs={post.momentMs} target={post.target} />
       )}
-      <div className="badges">
-        <span className="badge badge-hot">🎯 Made on attempt #{post.attempts}</span>
-        {post.target && <span className="badge">Called shot</span>}
-        <span className="badge" title="Recorded in the app with a one-time code burned into the video">
-          ✓ In-app take · {post.verifyCode}
+      <div className="pills">
+        <SpotPill post={post} />
+        <span className="pill">Attempt #{post.attempts}</span>
+        {post.target && (
+          <span className="pill pill-lime">
+            <Icon name="target" /> Called shot
+          </span>
+        )}
+        <span className="pill" title="Recorded in the app with a one-time code burned into the video">
+          <Icon name="check" /> In-app · {post.verifyCode}
         </span>
         {post.rules.map((r) => (
-          <span key={r} className="badge badge-rule">
+          <span key={r} className="pill pill-orange">
             {r}
           </span>
         ))}
@@ -138,7 +151,7 @@ function PostBlock({ s, post, onBloopers, isChamp }: { s: State; post: Post; onB
           )}
           {!mine && (
             <button className={`chip ${flagged ? 'chip-warn' : ''}`} onClick={() => flag(post.id)}>
-              🚩 {flagged ? 'Flagged' : 'Fake?'}
+              <Icon name="flag" /> {flagged ? 'Flagged' : 'Fake?'}
               {post.flags.length > 0 && ` ${post.flags.length}`}
             </button>
           )}
@@ -153,29 +166,51 @@ function VoteBox({ s, post }: { s: State; post: Post }) {
   const mine = post.authorId === s.meId;
   const up = post.votesUp.includes(s.meId!);
   const down = post.votesDown.includes(s.meId!);
+  const total = post.votesUp.length + post.votesDown.length;
+  const pct = total ? Math.round((post.votesUp.length / total) * 100) : 0;
   const q = post.kind === 'upped' ? 'Did they up it?' : 'Legit match?';
-  const status =
-    v === 'won'
-      ? post.kind === 'upped'
-        ? '✅ Lobby says: UPPED'
-        : '✅ Lobby says: matched'
-      : v === 'lost'
-        ? '❌ Lobby says: nope'
-        : '⏳ Voting open';
   return (
-    <div className={`vote vote-${v}`}>
+    <div className="vote">
       <div className="vote-q">
-        <b>{q}</b> <span className="small">{status}</span>
+        <b>{q}</b>
+        <span className="small muted">
+          {total} vote{total === 1 ? '' : 's'}
+        </span>
       </div>
+      {v === 'won' && (
+        <div className="result result-win">
+          <Icon name="check" size={26} />
+          <div className="grow">
+            {post.kind === 'upped' ? 'Winner' : 'Matched'}
+            <small>{pct}% said yes</small>
+          </div>
+          <span className="big">{pct}%</span>
+        </div>
+      )}
+      {v === 'lost' && (
+        <div className="result result-lose">
+          <Icon name="x" size={26} />
+          <div className="grow">
+            Not this time
+            <small>{100 - pct}% said no</small>
+          </div>
+          <span className="big">{pct}%</span>
+        </div>
+      )}
+      {v === 'pending' && total > 0 && (
+        <div className="result-bar">
+          <span style={{ width: `${pct}%` }} />
+        </div>
+      )}
       {mine ? (
         <p className="small muted">You can't vote on your own clip.</p>
       ) : (
         <div className="row">
-          <button className={`btn grow ${up ? '' : 'btn-ghost'}`} onClick={() => vote(post.id, true)}>
-            👍 Yes {post.votesUp.length > 0 && `· ${post.votesUp.length}`}
+          <button className={`btn btn-sm grow ${up ? '' : 'btn-quiet'}`} onClick={() => vote(post.id, true)}>
+            <Icon name="check" /> Yes {post.votesUp.length > 0 && `· ${post.votesUp.length}`}
           </button>
-          <button className={`btn grow ${down ? 'btn-miss' : 'btn-ghost'}`} onClick={() => vote(post.id, false)}>
-            👎 No {post.votesDown.length > 0 && `· ${post.votesDown.length}`}
+          <button className={`btn btn-sm grow ${down ? 'btn-miss' : 'btn-quiet'}`} onClick={() => vote(post.id, false)}>
+            <Icon name="x" /> No {post.votesDown.length > 0 && `· ${post.votesDown.length}`}
           </button>
         </div>
       )}
@@ -187,28 +222,27 @@ function Comments({ s, post }: { s: State; post: Post }) {
   const [text, setText] = useState('');
   return (
     <section className="comments">
-      <h2>Trash talk</h2>
-      {post.comments.length === 0 && <p className="muted small">No comments yet.</p>}
+      {post.comments.length === 0 && <p className="muted small">No trash talk yet. Start it.</p>}
       {post.comments.map((c) => (
         <div key={c.id} className="comment">
-          <Avatar user={s.users[c.userId]} size={26} />
+          <Avatar user={s.users[c.userId]} size={30} />
           <div>
-            <b>{s.users[c.userId]?.name}</b> <span className="small muted">{timeAgo(c.createdAt)}</span>
+            <b>{handle(s.users[c.userId])}</b> <span className="small muted">{timeAgo(c.createdAt)}</span>
             <div>{c.text}</div>
           </div>
         </div>
       ))}
       <form
-        className="row"
+        className="composer"
         onSubmit={(e) => {
           e.preventDefault();
           addComment(post.id, text);
           setText('');
         }}
       >
-        <input className="grow" value={text} maxLength={280} placeholder="Say something…" onChange={(e) => setText(e.target.value)} />
-        <button className="btn" disabled={!text.trim()}>
-          Send
+        <input className="grow" value={text} maxLength={280} placeholder="Add a comment…" onChange={(e) => setText(e.target.value)} />
+        <button className="icon-btn" disabled={!text.trim()} aria-label="Send">
+          <Icon name="upRight" />
         </button>
       </form>
     </section>
@@ -222,11 +256,11 @@ function Bloopers({ post, onClose, name }: { post: Post; onClose: () => void; na
     <div className="modal" onClick={onClose}>
       <div className="modal-body" onClick={(e) => e.stopPropagation()}>
         <div className="row">
-          <h2 className="grow">
-            Bloopers {i + 1}/{post.missIds.length}
+          <h2 className="section-title grow" style={{ margin: 0 }}>
+            Bloopers <span className="count">{i + 1}/{post.missIds.length}</span>
           </h2>
-          <button className="chip" onClick={onClose}>
-            ✕
+          <button className="icon-btn" onClick={onClose} aria-label="Close">
+            <Icon name="x" />
           </button>
         </div>
         <p className="small muted">
@@ -234,11 +268,11 @@ function Bloopers({ post, onClose, name }: { post: Post; onClose: () => void; na
         </p>
         <ClipPlayer key={id} blobId={id} momentMs={-10_000} slowmo={false} loop={false} stampText="" />
         <div className="row">
-          <button className="btn btn-ghost grow" disabled={i === 0} onClick={() => setI(i - 1)}>
-            ‹ Prev
+          <button className="btn btn-quiet btn-sm grow" disabled={i === 0} onClick={() => setI(i - 1)}>
+            Prev
           </button>
-          <button className="btn btn-ghost grow" disabled={i >= post.missIds.length - 1} onClick={() => setI(i + 1)}>
-            Next ›
+          <button className="btn btn-quiet btn-sm grow" disabled={i >= post.missIds.length - 1} onClick={() => setI(i + 1)}>
+            Next
           </button>
         </div>
       </div>

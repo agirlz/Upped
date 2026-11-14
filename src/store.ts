@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { blobPut, clearAll, kvGet, kvSet } from './db';
-import type { Challenge, ID, Lobby, Post, PostKind, State, Target, User } from './types';
+import type { Challenge, ID, Lobby, Post, PostKind, Spot, State, Target, User } from './types';
 
 // ---------------------------------------------------------------------------
 // State container. All data lives in one object, persisted to IndexedDB.
@@ -151,6 +151,7 @@ export interface NewPost {
   challengeId?: ID;
   title: string;
   rules: string[];
+  spot?: Spot;
   video: Blob;
   thumb?: Blob;
   misses: Blob[];
@@ -186,6 +187,7 @@ export async function createPost(input: NewPost): Promise<Post> {
     challengeId: input.challengeId,
     title: input.title.trim(),
     rules: input.rules,
+    spot: input.spot,
     videoId,
     thumbId,
     missIds,
