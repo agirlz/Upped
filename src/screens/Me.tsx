@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Icon } from '../components/Icon';
 import { Avatar, handle } from '../components/ui';
-import { createUser, isHidden, resetEverything, switchUser, updateMe, useAppState } from '../store';
+import { cloudMode, createUser, isHidden, resetEverything, switchUser, updateMe, useAppState } from '../store';
 import { AVATARS } from '../types';
 
 export function MePage() {
@@ -71,6 +71,8 @@ export function MePage() {
         </div>
       </section>
 
+      {!cloudMode && (
+        <>
       <section className="card">
         <h3>My area</h3>
         <p className="small muted">Used for the "Near me" leaderboard.</p>
@@ -118,16 +120,21 @@ export function MePage() {
         </form>
       </section>
 
+        </>
+      )}
       <button
         className="link danger small"
         onClick={async () => {
-          if (confirm('Delete every player, lobby and clip on this device?')) {
+          const msg = cloudMode
+            ? 'Sign out? Your account has no email, so you will NOT be able to sign back in to it. Only do this if you are giving away this phone.'
+            : 'Delete every player, lobby and clip on this device?';
+          if (confirm(msg)) {
             await resetEverything();
             location.hash = '/';
           }
         }}
       >
-        Reset all data on this device
+        {cloudMode ? 'Sign out of this phone' : 'Reset all data on this device'}
       </button>
     </div>
   );

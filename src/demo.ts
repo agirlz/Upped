@@ -3,7 +3,7 @@
 // using the same overlay and recorder as live shots.
 
 import { canvasToBlob, drawOverlay, pickMimeType } from './capture';
-import { addComment, createChallenge, createLobby, createPost, createUser, DAY, getState, react, seed, vote } from './store';
+import { addComment, createChallenge, createLocalLobby, createPost, createUser, DAY, getState, react, seed, vote } from './store';
 import type { Target } from './types';
 
 interface Scene {
@@ -177,7 +177,7 @@ export async function buildDemo(progress: (msg: string) => void): Promise<string
   const jay = createUser('Jay', '🦅', false);
   const mo = createUser('Mo', '🐐', false);
   const priya = createUser('Priya', '⚡', false);
-  const lobby = createLobby('Driveway Legends (demo)');
+  const lobby = createLocalLobby('Driveway Legends (demo)');
   seed((s) => {
     s.lobbies[lobby.id].memberIds.push(jay.id, mo.id, priya.id);
   });

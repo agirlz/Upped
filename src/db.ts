@@ -83,12 +83,22 @@ export async function clearAll(): Promise<void> {
 }
 
 const urlCache = new Map<string, string>();
+let remoteSource: ((path: string) => Promise<Blob | undefined>) | null = null;
+
+/** Lets ids starting with "cloud:" be downloaded from the server (and cached on the phone). */
+export function setRemoteBlobSource(fn: (path: string) => Promise<Blob | undefined>) {
+  remoteSource = fn;
+}
 
 /** Object URL for a stored blob, cached for the page's lifetime. */
 export async function blobUrl(id: string): Promise<string | undefined> {
   const hit = urlCache.get(id);
   if (hit) return hit;
-  const blob = await blobGet(id);
+  let blob = await blobGet(id).catch(() => undefined);
+  if (!blob && id.startsWith('cloud:') && remoteSource) {
+    blob = await remoteSource(id.slice('cloud:'.length));
+    if (blob) void blobPut(id, blob).catch(() => {});
+  }
   if (!blob) return undefined;
   const url = URL.createObjectURL(blob);
   urlCache.set(id, url);

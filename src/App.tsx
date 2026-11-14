@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Icon, Logo } from './components/Icon';
 import { go, useRoute } from './router';
-import { loadState, useAppState } from './store';
+import { loadState, onError, useAppState } from './store';
 import { ChallengesPage, ChallengeView } from './screens/Challenges';
 import { Home, Onboard } from './screens/Home';
 import { LobbyView } from './screens/LobbyView';
@@ -16,7 +16,12 @@ export function App() {
   const s = useAppState();
   const { path, query } = useRoute();
 
+  const [toast, setToast] = useState<string>();
   useEffect(() => {
+    onError((m) => {
+      setToast(m);
+      window.setTimeout(() => setToast(undefined), 5000);
+    });
     void loadState().then(() => setReady(true));
   }, []);
 
@@ -69,6 +74,11 @@ export function App() {
   return (
     <div className="app">
       <main>{screen}</main>
+      {toast && (
+        <div className="toast" role="alert" onClick={() => setToast(undefined)}>
+          Couldn't sync: {toast}
+        </div>
+      )}
       <nav className="nav">
         <NavBtn on={tab === 'home'} icon="home" label="Lobby" to="/" />
         <NavBtn on={tab === 'challenges'} icon="trophy" label="Challenges" to="/challenges" />

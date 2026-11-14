@@ -519,3 +519,10 @@ details ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
   .settings label:first-child { grid-column: span 2; }
   .display { font-size: 2rem; }
 }
+
+.toast {
+  position: fixed; left: 16px; right: 16px; bottom: calc(96px + env(safe-area-inset-bottom)); z-index: 30;
+  max-width: 528px; margin: 0 auto; padding: 12px 14px; border-radius: var(--r-md);
+  background: var(--elevated); border: 1.5px solid var(--red); color: var(--white); font-size: 0.88rem;
+  box-shadow: var(--shadow-card);
+}

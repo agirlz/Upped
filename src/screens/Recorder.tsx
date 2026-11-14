@@ -4,7 +4,7 @@ import { ClipPlayer } from '../components/ClipPlayer';
 import { Icon } from '../components/Icon';
 import { PageTitle, TopBar } from '../components/ui';
 import { go } from '../router';
-import { createPost, myLobbies, randomCode, useAppState } from '../store';
+import { cloudMode, createPost, myLobbies, randomCode, useAppState } from '../store';
 import { RULE_OPTIONS, type PostKind, type Spot, type Target } from '../types';
 
 interface Props {
@@ -25,7 +25,8 @@ interface Clip {
   recordedAt: number;
 }
 
-const MAX_BLOOPERS = 12;
+// Online, only the last few misses upload, to save storage.
+const MAX_BLOOPERS = cloudMode ? 3 : 12;
 
 export function Recorder({ lobbyId: lobbyParam, rootId, kind, challengeId }: Props) {
   const s = useAppState();
@@ -114,7 +115,7 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind, challengeId }: Pro
     const draw = () => {
       const vw = v.videoWidth || 1280;
       const vh = v.videoHeight || 720;
-      const scale = Math.min(1, 960 / vw);
+      const scale = Math.min(1, 720 / vw);
       const w = Math.round(vw * scale);
       const h = Math.round(vh * scale);
       if (c.width !== w || c.height !== h) {
@@ -184,7 +185,7 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind, challengeId }: Pro
     const out = c.captureStream(30);
     streamRef.current?.getAudioTracks().forEach((t) => out.addTrack(t));
     const mimeType = pickMimeType();
-    const rec = new MediaRecorder(out, mimeType ? { mimeType, videoBitsPerSecond: 2_500_000 } : undefined);
+    const rec = new MediaRecorder(out, mimeType ? { mimeType, videoBitsPerSecond: 1_000_000 } : undefined);
     const chunks: Blob[] = [];
     rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
     const recordedAt = Date.now();
@@ -227,10 +228,14 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind, challengeId }: Pro
     setPhase('aim');
   };
 
+  const [postErr, setPostErr] = useState('');
   const post = async () => {
     if (!clip || !lobbyId) return;
     setPosting(true);
-    const p = await createPost({
+    setPostErr('');
+    let p;
+    try {
+      p = await createPost({
       lobbyId,
       kind,
       rootId,
@@ -247,7 +252,12 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind, challengeId }: Pro
       durationMs: clip.durationMs,
       verifyCode: code,
       recordedAt: clip.recordedAt,
-    });
+      });
+    } catch (e) {
+      setPostErr((e as Error).message);
+      setPosting(false);
+      return;
+    }
     streamRef.current?.getTracks().forEach((t) => t.stop());
     go(`/post/${p.rootId ?? p.id}`);
   };
@@ -336,6 +346,7 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind, challengeId }: Pro
             </select>
           </label>
         )}
+        {postErr && <p className="error">Couldn't post: {postErr}</p>}
         <div className="verify-box">
           <b>Verified take</b>
           <span><Icon name="check" /> Recorded in the app, one continuous take</span>
@@ -345,7 +356,7 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind, challengeId }: Pro
         </div>
         <div className="row">
           <button className="btn grow" disabled={posting} onClick={post}>
-            {posting ? 'Posting…' : 'Post to lobby'} <Icon name="upRight" />
+            {posting ? (cloudMode ? 'Uploading…' : 'Posting…') : 'Post to lobby'} <Icon name="upRight" />
           </button>
         </div>
       </div>

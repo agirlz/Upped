@@ -3,12 +3,24 @@ import { Icon, Logo } from '../components/Icon';
 import { Avatar, Empty, PageTitle, timeAgo } from '../components/ui';
 import { buildDemo } from '../demo';
 import { go } from '../router';
-import { createLobby, createUser, joinLobby, myLobbies, useAppState } from '../store';
+import { cloudMode, createLobby, joinLobby, myLobbies, signUpPlayer, useAppState } from '../store';
 import { AVATARS } from '../types';
 
 export function Onboard() {
   const [name, setName] = useState('');
   const [emoji, setEmoji] = useState(AVATARS[0]);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const start = async () => {
+    setBusy(true);
+    setErr('');
+    try {
+      await signUpPlayer(name, emoji);
+    } catch (e) {
+      setErr((e as Error).message);
+      setBusy(false);
+    }
+  };
   return (
     <div className="page onboard">
       <div className="hero-logo">
@@ -51,9 +63,13 @@ export function Onboard() {
           ))}
         </div>
       </div>
-      <button className="btn full" disabled={!name.trim()} onClick={() => createUser(name, emoji)}>
-        Let's go <Icon name="upRight" />
+      {err && <p className="error">{err}</p>}
+      <button className="btn full" disabled={!name.trim() || busy} onClick={start}>
+        {busy ? 'Setting up…' : "Let's go"} <Icon name="upRight" />
       </button>
+      {cloudMode && (
+        <p className="small muted center">No email needed. Your account lives on this phone, so don't clear this site's data.</p>
+      )}
     </div>
   );
 }
@@ -66,15 +82,18 @@ export function Home() {
   const [err, setErr] = useState('');
   const [demoBusy, setDemoBusy] = useState<string>();
 
-  const submit = () => {
+  const [working, setWorking] = useState(false);
+  const submit = async () => {
     setErr('');
-    if (mode === 'create') {
-      const l = createLobby(value);
-      go(`/lobby/${l.id}`);
-    } else {
-      const l = joinLobby(value);
-      if (!l) return setErr('No lobby with that code.');
-      go(`/lobby/${l.id}`);
+    setWorking(true);
+    try {
+      const id = mode === 'create' ? await createLobby(value) : await joinLobby(value);
+      if (!id) return setErr('No lobby with that code.');
+      go(`/lobby/${id}`);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setWorking(false);
     }
   };
 
@@ -98,7 +117,7 @@ export function Home() {
       <PageTitle>Your lobbies</PageTitle>
       {lobbies.length === 0 && (
         <Empty icon="users" title="No lobbies yet">
-          <p className="muted">Start one for your group, join with a friend's code, or try the demo lobby.</p>
+          <p className="muted">{cloudMode ? "Start one for your crew, or join with a friend's invite code." : "Start one for your group, join with a friend's code, or try the demo lobby."}</p>
         </Empty>
       )}
       <div className="stack">
@@ -150,16 +169,18 @@ export function Home() {
             <button className="btn btn-quiet" onClick={() => (setMode('none'), setValue(''), setErr(''))}>
               Cancel
             </button>
-            <button className="btn grow" disabled={!value.trim()} onClick={submit}>
+            <button className="btn grow" disabled={!value.trim() || working} onClick={submit}>
               {mode === 'create' ? 'Create lobby' : 'Join'}
             </button>
           </div>
         </div>
       )}
 
-      <button className="btn btn-quiet full" disabled={!!demoBusy} onClick={demo}>
-        {demoBusy ?? 'Load a demo lobby with sample clips'}
-      </button>
+      {!cloudMode && (
+        <button className="btn btn-quiet full" disabled={!!demoBusy} onClick={demo}>
+          {demoBusy ?? 'Load a demo lobby with sample clips'}
+        </button>
+      )}
     </div>
   );
 }

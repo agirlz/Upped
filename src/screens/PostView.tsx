@@ -4,7 +4,7 @@ import { Icon } from '../components/Icon';
 import { SideBySide } from '../components/SideBySide';
 import { Avatar, handle, ReactionBar, SpotPill, timeAgo, TopBar } from '../components/ui';
 import { go } from '../router';
-import { addComment, champion, flag, isHidden, repliesOf, useAppState, verdict, votesNeeded, vote } from '../store';
+import { addComment, canDelete, champion, deletePost, flag, isHidden, repliesOf, useAppState, verdict, votesNeeded, vote } from '../store';
 import type { Post, State } from '../types';
 
 export function PostView({ id }: { id: string }) {
@@ -147,6 +147,22 @@ function PostBlock({ s, post, onBloopers, isChamp }: { s: State; post: Post; onB
           {post.missIds.length > 0 && (
             <button className="chip" onClick={onBloopers}>
               😂 Bloopers ({post.missIds.length})
+            </button>
+          )}
+          {canDelete(s, post) && (
+            <button
+              className="chip"
+              onClick={async () => {
+                if (!confirm(post.kind === 'original' ? 'Delete this clip and all its replies?' : 'Delete this clip?')) return;
+                try {
+                  await deletePost(post.id);
+                  if (post.kind === 'original') go(`/lobby/${post.lobbyId}`);
+                } catch (e) {
+                  alert((e as Error).message);
+                }
+              }}
+            >
+              <Icon name="x" /> Delete
             </button>
           )}
           {!mine && (

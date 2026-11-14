@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Icon } from '../components/Icon';
 import { Avatar, handle, PageTitle } from '../components/ui';
 import { go } from '../router';
-import { distanceKm, LOCAL_RADIUS_KM, myLobbies, POINTS, scoreboard, startOfWeek, useAppState, type Score } from '../store';
+import { cloudMode, distanceKm, LOCAL_RADIUS_KM, myLobbies, POINTS, scoreboard, startOfWeek, useAppState, type Score } from '../store';
 
 type Scope = 'lobby' | 'local' | 'global';
 
@@ -67,7 +67,7 @@ export function Leaderboard({ fixedLobbyId }: { fixedLobbyId?: string }) {
 
   return (
     <div className="board">
-      {!fixedLobbyId && (
+      {!fixedLobbyId && !cloudMode && (
         <div className="tabs">
           {(['lobby', 'local', 'global'] as const).map((t) => (
             <button key={t} className={`tab ${scope === t ? 'on' : ''}`} onClick={() => setScope(t)}>
@@ -131,7 +131,7 @@ export function Leaderboard({ fixedLobbyId }: { fixedLobbyId?: string }) {
           </li>
         ))}
       </ol>
-      {scope === 'global' && (
+      {scope === 'global' && !cloudMode && (
         <p className="small muted">
           Global rankings fill in once the app runs on a shared server. Right now they show everyone on this device.
         </p>
