@@ -4,7 +4,7 @@ Post a trick shot, your lobby matches it or ups it, everyone votes, the winner h
 
 ## Live app
 
-Every push to `main` publishes the app to **https://agirlz.github.io/upped/** (GitHub Actions →
+Every push to `main` publishes the app to **https://agirlz.github.io/Upped/** (GitHub Actions →
 GitHub Pages). Open that link on your phone; on Android, use Chrome's menu → *Add to Home screen*.
 
 ## Run it locally
