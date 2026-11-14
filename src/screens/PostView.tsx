@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ClipPlayer } from '../components/ClipPlayer';
 import { Icon } from '../components/Icon';
+import { EnhanceClip } from '../components/EnhanceClip';
 import { SideBySide } from '../components/SideBySide';
 import { Avatar, handle, ReactionBar, SpotPill, timeAgo, TopBar } from '../components/ui';
 import { difficulty, distanceLabel, targetInfo } from '../difficulty';
@@ -103,6 +104,7 @@ function PostBlock({ s, post, onBloopers, isChamp }: { s: State; post: Post; onB
   const hidden = isHidden(s, post);
   const mine = post.authorId === s.meId;
   const flagged = post.flags.includes(s.meId!);
+  const [enhancing, setEnhancing] = useState(false);
   return (
     <div className="post">
       {post.kind === 'original' && <h2 className="title" style={{ fontSize: '1.6rem' }}>{post.title}</h2>}
@@ -134,11 +136,17 @@ function PostBlock({ s, post, onBloopers, isChamp }: { s: State; post: Post; onB
         )}
         {targetInfo(post.targetSize) && <span className="pill">{targetInfo(post.targetSize)!.label} target</span>}
         <span className="pill">Attempt #{post.attempts}</span>
-        {post.target && (
+        {post.target && !post.target.late && (
           <span className="pill pill-lime">
             <Icon name="target" /> Called shot
           </span>
         )}
+        {post.target?.late && (
+          <span className="pill" title="The target was marked after the shot, not called before it">
+            <Icon name="target" /> Target added later
+          </span>
+        )}
+        {post.trail && <span className="pill pill-lime">✨ Trail</span>}
         <span className="pill" title="Recorded in the app with a one-time code burned into the video">
           <Icon name="check" /> In-app · {post.verifyCode}
         </span>
@@ -148,9 +156,15 @@ function PostBlock({ s, post, onBloopers, isChamp }: { s: State; post: Post; onB
           </span>
         ))}
       </div>
+      {enhancing && <EnhanceClip post={post} onClose={() => setEnhancing(false)} />}
       <div className="post-actions">
         <ReactionBar post={post} meId={s.meId!} />
         <div className="row tight">
+          {mine && !hidden && (!post.trail || !post.target) && (
+            <button className="chip chip-on" onClick={() => setEnhancing(true)}>
+              ✨ {!post.target ? (post.trail ? 'Add target' : 'Add target & trail') : 'Add trail'}
+            </button>
+          )}
           {post.missIds.length > 0 && (
             <button className="chip" onClick={onBloopers}>
               😂 Bloopers ({post.missIds.length})

@@ -356,6 +356,18 @@ async function createCloudPost(input: NewPost): Promise<Post> {
   return post;
 }
 
+/** Add a target / trail to an existing clip (author only). */
+export async function savePostAnalysis(postId: ID, patch: { target: Target; trail?: Post['trail']; momentMs: number }) {
+  if (cloudMode) await cloud.updatePostAnalysis(postId, patch);
+  commit((s) => {
+    const p = s.posts[postId];
+    if (!p) return;
+    p.target = patch.target;
+    p.trail = patch.trail;
+    p.momentMs = patch.momentMs;
+  });
+}
+
 /** Authors and lobby admins can delete a clip. */
 export function canDelete(s: State, p: Post): boolean {
   return p.authorId === s.meId || s.lobbies[p.lobbyId]?.createdBy === s.meId;

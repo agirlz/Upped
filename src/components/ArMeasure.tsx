@@ -27,19 +27,19 @@ export function arMeasureSupported(): Promise<boolean> {
   return supportCache;
 }
 
-type Phase = 'starting' | 'place' | 'walk';
+type Phase = 'intro' | 'starting' | 'place' | 'walk';
 
 export function ArMeasure({ onDone, onClose }: { onDone: (feet: number) => void; onClose: () => void }) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef<XRSession | null>(null);
   const latest = useRef<{ x: number; z: number; tracked: boolean } | null>(null);
   const start = useRef<{ x: number; z: number } | null>(null);
-  const [phase, setPhase] = useState<Phase>('starting');
+  const [phase, setPhase] = useState<Phase>('intro');
   const [feet, setFeet] = useState(0);
   const feetRef = useRef(0);
   const [tracked, setTracked] = useState(false);
   const [error, setError] = useState('');
-  const phaseRef = useRef<Phase>('starting');
+  const phaseRef = useRef<Phase>('intro');
   phaseRef.current = phase;
 
   const finish = (ft?: number) => {
@@ -64,8 +64,10 @@ export function ArMeasure({ onDone, onClose }: { onDone: (feet: number) => void;
     finish(Math.round(feetRef.current * 10) / 10);
   };
 
-  useEffect(() => {
-    let cancelled = false;
+  const cancelled = useRef(false);
+  // Started from the intro's button: AR must be opened by a tap.
+  const begin = () => {
+    setPhase('starting');
     let lastUi = 0;
     (async () => {
       try {
@@ -76,7 +78,7 @@ export function ArMeasure({ onDone, onClose }: { onDone: (feet: number) => void;
           optionalFeatures: ['dom-overlay'],
           domOverlay: { root: overlayRef.current! },
         } as XRSessionInit);
-        if (cancelled) {
+        if (cancelled.current) {
           void session.end();
           return;
         }
@@ -124,19 +126,23 @@ export function ArMeasure({ onDone, onClose }: { onDone: (feet: number) => void;
         setError((e as Error).message || 'Could not start AR measuring.');
       }
     })();
-    return () => {
-      cancelled = true;
+  };
+
+  useEffect(
+    () => () => {
+      cancelled.current = true;
       void sessionRef.current?.end().catch(() => {});
       sessionRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    },
+    [],
+  );
 
+  const stepNo = phase === 'walk' ? 2 : 1;
   return (
-    <div className="ar-overlay" ref={overlayRef}>
+    <div className={`ar-overlay ${phase === 'intro' ? 'ar-intro' : ''}`} ref={overlayRef}>
       <div className="ar-top">
         <span className="pill pill-lime">
-          <Icon name="target" /> Measure distance
+          📏 {phase === 'intro' ? 'Measure your distance' : `Step ${stepNo} of 2`}
         </span>
         <button className="icon-btn" onClick={() => finish()} aria-label="Cancel measuring">
           <Icon name="x" size={24} />
@@ -147,7 +153,27 @@ export function ArMeasure({ onDone, onClose }: { onDone: (feet: number) => void;
         <div className="ar-card">
           <p className="error">{error}</p>
           <button className="btn full" onClick={onClose}>
-            Pick a distance instead
+            Skip measuring
+          </button>
+        </div>
+      ) : phase === 'intro' ? (
+        <div className="ar-card ar-howto">
+          <h2 className="title">How it works</h2>
+          <div className="howto-step">
+            <span className="howto-num">1</span>
+            <div>
+              <b>Stand at the target.</b> Hold your phone right above the cup, then tap <b className="lime">START</b>.
+            </div>
+          </div>
+          <div className="howto-step">
+            <span className="howto-num">2</span>
+            <div>
+              <b>Walk to your spot.</b> Go back to where you'll shoot from (your chair), then tap <b className="lime">DONE</b>.
+            </div>
+          </div>
+          <p className="small muted">Then you call your shot and record as usual. Keep the camera pointed at the room while you walk. Good light helps.</p>
+          <button className="btn btn-big full" onClick={begin}>
+            I'm at the target. Let's go
           </button>
         </div>
       ) : (
@@ -159,31 +185,32 @@ export function ArMeasure({ onDone, onClose }: { onDone: (feet: number) => void;
                 <span className="ar-unit">ft</span>
               </>
             ) : (
-              <span className="ar-hint">{phase === 'starting' ? 'Starting AR…' : tracked ? 'Ready' : 'Move the phone slowly…'}</span>
+              <span className="ar-hint">
+                {phase === 'starting' ? 'Starting the camera…' : tracked ? 'Ready!' : 'Slowly move your phone around so it can see the room'}
+              </span>
             )}
           </div>
           <div className="ar-card">
-            {phase === 'place' && (
+            {(phase === 'starting' || phase === 'place') && (
               <>
-                <p>
-                  <b>1.</b> Hold your phone right over the target (the cup, the hoop).
+                <p className="ar-step">
+                  <span className="howto-num">1</span> Hold your phone <b>right above the cup</b>, then tap START.
                 </p>
-                <button className="btn full" disabled={!tracked} onClick={markStart}>
-                  {tracked ? 'Start here' : 'Finding the room…'}
+                <button className={`btn btn-big full ${tracked ? 'pulse' : ''}`} disabled={!tracked} onClick={markStart}>
+                  {tracked ? 'START' : 'Getting ready…'}
                 </button>
               </>
             )}
             {phase === 'walk' && (
               <>
-                <p>
-                  <b>2.</b> Walk back to where you'll shoot from. Keep the camera pointed at the room.
+                <p className="ar-step">
+                  <span className="howto-num">2</span> Walk to <b>where you'll shoot from</b>, then tap DONE.
                 </p>
-                <button className="btn full" onClick={markDone}>
-                  I'm shooting from here
+                <button className="btn btn-big full pulse" onClick={markDone}>
+                  DONE: I'm at my spot
                 </button>
               </>
             )}
-            <p className="small muted">Works best in good light with stuff in view. Blank walls confuse it.</p>
           </div>
         </>
       )}

@@ -334,6 +334,7 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind: forcedKind, challe
     setCamOn(false);
     setMeasuring(true);
   };
+  const [measureSkipped, setMeasureSkipped] = useState(false);
   const endMeasure = (ft?: number) => {
     setMeasuring(false);
     setCamOn(true);
@@ -702,13 +703,18 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind: forcedKind, challe
 
       {phase === 'aim' && ready && (
         <>
-          <p className="hint">
-            {facing === 'user'
-              ? 'Selfie camera: say hi, then flip ⇄ to the shot. You can flip while recording too.'
-              : target
-                ? 'Target called. Tap to move it.'
-                : 'Tap your target to call your shot.'}
-          </p>
+          {facing === 'user' ? (
+            <p className="hint">Selfie camera: say hi, then flip ⇄ to the shot. You can flip while recording too.</p>
+          ) : (
+            <ShotSteps
+              canMeasure={canMeasure && attempt === 1}
+              distanceFt={distanceFt}
+              skipped={measureSkipped}
+              onMeasure={startMeasure}
+              onSkip={() => setMeasureSkipped(true)}
+              targetCalled={!!target}
+            />
+          )}
           <div className="rec-controls">
             <button className="icon-btn ctl" onClick={() => setShowSettings((v) => !v)} aria-label="Settings">
               ⚙️
@@ -800,5 +806,75 @@ export function Recorder({ lobbyId: lobbyParam, rootId, kind: forcedKind, challe
         </>
       )}
     </div>
+  );
+}
+
+/** The order of things before a shot: measure (optional), call the target, record. */
+function ShotSteps({
+  canMeasure,
+  distanceFt,
+  skipped,
+  onMeasure,
+  onSkip,
+  targetCalled,
+}: {
+  canMeasure: boolean;
+  distanceFt?: number;
+  skipped: boolean;
+  onMeasure: () => void;
+  onSkip: () => void;
+  targetCalled: boolean;
+}) {
+  const measured = distanceFt !== undefined;
+  const measureOpen = canMeasure && !measured && !skipped;
+  let n = 0;
+  return (
+    <ol className="shot-steps">
+      {canMeasure && (
+        <li className={measured ? 'done' : skipped ? 'skipped' : 'now'}>
+          <span className="howto-num">{measured ? '✓' : ++n}</span>
+          <div className="grow">
+            {measured ? (
+              <>
+                <b>Distance: {distanceFt!.toFixed(1)} ft</b>{' '}
+                <button className="link small" onClick={onMeasure}>
+                  measure again
+                </button>
+              </>
+            ) : skipped ? (
+              <>
+                <span className="muted">Measuring skipped</span>{' '}
+                <button className="link small" onClick={onMeasure}>
+                  measure anyway
+                </button>
+              </>
+            ) : (
+              <>
+                <b>Measure your distance first?</b>
+                <div className="small muted">Optional. Stand at the cup, then walk back to your spot.</div>
+                <div className="row" style={{ marginTop: 8 }}>
+                  <button className="btn btn-sm grow" onClick={onMeasure}>
+                    📏 Measure now
+                  </button>
+                  <button className="btn btn-quiet btn-sm grow" onClick={onSkip}>
+                    Skip
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </li>
+      )}
+      <li className={targetCalled ? 'done' : measureOpen ? '' : 'now'}>
+        <span className="howto-num">{targetCalled ? '✓' : ++n}</span>
+        <div className="grow">{targetCalled ? <b>Target called</b> : <b>Tap the cup on the screen</b>} <span className="small muted">{targetCalled ? '(tap to move it)' : 'to call your shot'}</span></div>
+      </li>
+      <li className={targetCalled && !measureOpen ? 'now' : ''}>
+        <span className="howto-num">{++n}</span>
+        <div className="grow">
+          <b>Tap record</b> <span className="small muted">and shoot</span>
+        </div>
+      </li>
+    </ol>
   );
 }

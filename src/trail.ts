@@ -31,7 +31,7 @@ export class FlightFrames {
   private canvas = document.createElement('canvas');
   private ctx: CanvasRenderingContext2D;
 
-  constructor() {
+  constructor(private keepMs = KEEP_MS) {
     this.ctx = this.canvas.getContext('2d', { willReadFrequently: true })!;
   }
 
@@ -65,7 +65,7 @@ export class FlightFrames {
       if (same) return;
     }
     this.frames.push({ t, data: gray });
-    while (this.frames.length && t - this.frames[0].t > KEEP_MS) this.frames.shift();
+    while (this.frames.length && t - this.frames[0].t > this.keepMs) this.frames.shift();
   }
 }
 

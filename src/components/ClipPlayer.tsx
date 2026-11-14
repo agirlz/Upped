@@ -47,6 +47,8 @@ export const ClipPlayer = forwardRef<ClipPlayerHandle, Props>(function ClipPlaye
   const [muted, setMuted] = useState(true);
   const [playing, setPlaying] = useState(false);
   const timer = useRef<number>();
+  // A target marked after the shot wasn't "called", so the stamp says so.
+  if (target?.late && stampText === 'CALLED IT') stampText = 'MADE IT';
   const trailPath = useRef<SVGPathElement>(null);
   const trailHead = useRef<SVGCircleElement>(null);
   const [dims, setDims] = useState({ w: 16, h: 9 });
@@ -183,8 +185,9 @@ export const ClipPlayer = forwardRef<ClipPlayerHandle, Props>(function ClipPlaye
             onPause={() => setPlaying(false)}
           />
         )}
-        {trail && trail.length > 1 && (
+        {((trail && trail.length > 1) || target?.late) && (
           <svg className="clip-trail" viewBox={`0 0 ${dims.w} ${dims.h}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            {target?.late && <TargetRing target={target} w={dims.w} h={dims.h} />}
             <path ref={trailPath} fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth={dims.w * 0.012} />
             <circle ref={trailHead} r="0" />
           </svg>
@@ -240,4 +243,31 @@ export function Thumb({ blobId, className }: { blobId?: string; className?: stri
     };
   }, [blobId]);
   return url ? <img className={className ?? 'thumb'} src={url} alt="" /> : <div className={className ?? 'thumb'} />;
+}
+
+/** The target ring for clips whose target was added after recording (drawn on playback). */
+export function TargetRing({ target, w, h }: { target: Target; w: number; h: number }) {
+  const cx = target.x * w;
+  const cy = target.y * h;
+  const r = target.r * w;
+  const u = w / 100;
+  const ticks = [0, 1, 2, 3].map((i) => {
+    const a = (i * Math.PI) / 2;
+    return (
+      <line
+        key={i}
+        x1={cx + Math.cos(a) * (r - u * 1.6)}
+        y1={cy + Math.sin(a) * (r - u * 1.6)}
+        x2={cx + Math.cos(a) * (r + u * 2.4)}
+        y2={cy + Math.sin(a) * (r + u * 2.4)}
+      />
+    );
+  });
+  return (
+    <g className="late-ring" strokeWidth={Math.max(2, u * 0.55)}>
+      <circle cx={cx} cy={cy} r={r} fill="none" />
+      {ticks}
+      <circle cx={cx} cy={cy} r={Math.max(1.5, u * 0.35)} className="dot" />
+    </g>
+  );
 }

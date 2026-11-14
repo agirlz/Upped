@@ -260,3 +260,16 @@ export function subscribe(onChange: () => void): () => void {
     void sb!.removeChannel(channel);
   };
 }
+
+/** Save a target and trail added to a clip after recording (authors only). */
+export async function updatePostAnalysis(postId: ID, patch: { target: Post['target']; trail?: Post['trail']; momentMs: number }) {
+  const row: Record<string, unknown> = { target: patch.target ?? null, trail: patch.trail ?? null, moment_ms: Math.round(patch.momentMs) };
+  const res = await sb!.from('posts').update(row).eq('id', postId).select('id');
+  if (res.error && /trail/.test(res.error.message)) {
+    delete row.trail;
+    must(await sb!.from('posts').update(row).eq('id', postId));
+    throw new Error('Saved the target, but the trail needs one database update first (see the setup notes).');
+  }
+  const rows = must<unknown[]>(res);
+  if (!rows.length) throw new Error('Only the person who posted a clip can change it.');
+}

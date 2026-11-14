@@ -28,6 +28,8 @@ export interface Target {
   x: number;
   y: number;
   r: number; // radius as a fraction of frame width
+  /** Added after recording (not called before the shot): drawn on playback, not in the video. */
+  late?: boolean;
 }
 
 export type PostKind = 'original' | 'matched' | 'upped';
